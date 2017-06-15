@@ -1,37 +1,28 @@
 __author__ = 'Guoli Lv'
 __email__ = 'gollyrui@i.smu.edu.cn'
+import struct
 
 class DataStream():
 
     """DataStream for BCI"""
 
-    def __init__(self):
+    def __init__(self,inputFile,outputFile='out.txt'):
         """TODO: """
         #super(self.__init__(self),*args,**kwargs)
-        pass
+        data = self.read_txt(inputFile)
+        self.write_to_txt(data,outputFile)
 
-
-
-    def str2hex(self,string):
-
-        return int(string,16)
-
-    def read_txt(self, path):
+    def read_txt(self, inputFile):
         """TODO: Docstring for read_txt
 
-        :path: TODO
-        :returns: TODO
-
+        :inputFile: inputFile
+        :returns: list of data in time series
         """
-        txt = open(path).read()
+        txt = open(inputFile).read()
         txt = txt.split()
         indices = [i for i, x in enumerate(txt) if x == "AA"]
-        datas = ''
-        index = -1
+        datas = list()
         for indice in indices:
-            index = index + 1
-            if index == 255:
-                index = -1
             indexStart = indice
             try:
                 txt[indexStart+12]
@@ -41,23 +32,31 @@ class DataStream():
                 data = txt[indexStart:indexStart+12]
 
                 #valid0 = data[5] + data[4] + data[3] + data[2]
-                valid0 = '%s %s %s' % (data[4] , data[3] , data[2])
+                valid0 = '%s%s%s%s' % (data[5], data[4] , data[3] , data[2])
+                validInt0 = struct.unpack('>i', bytes.fromhex(valid0))[0]
+                datas.append(validInt0)
+
                 #valid1 = data[10] + data[9] + data[8] + data[7]
-                valid1 = '%s %s %s' % (data[9] , data[8] , data[7])
+                valid1 = '%s%s%s%s' % (data[10], data[9] , data[8] , data[7])
+                validInt1 = struct.unpack('>i', bytes.fromhex(valid1))[0]
+                datas.append(validInt1)
+        return datas
 
-                sampleNumber = hex(index)[-2:]
-                if sampleNumber[0] == 'x':
-                    sampleNumber = '0' + sampleNumber[1]
-
-                dataBytes = 'A0 %s %s %s %s %s %s %s %s %s 00 00 00 00 00 00 C2 '%(sampleNumber,valid0,valid0,valid0,valid0,valid0,valid0,valid0,valid0)
-                datas = datas + dataBytes
-
-        datas = datas.split()
-        datas = [int(data,16) for data in datas]
-        return bytes(datas)
+    def write_to_txt(self,data,name='out.txt'):
+        with open(name,'w') as fh:
+            epoches = [ data[m:m+256] for m in range(0,len(data),256)]
+            for epoch in epoches:
+                for index in range(len(epoch)):
+                    line = '%f,%f,%f,%f,%f,%f,%f,%f,%f\n' % (index,epoch[index],epoch[index],epoch[index],epoch[index],epoch[index],epoch[index],epoch[index],epoch[index])
+                    fh.write(line)
+            fh.close()
 
     def write_bytes_to_file(self,bytesOut,name='test.hex'):
+        raise Exception('Deprecated')
         fh = open(name,'wb')
         fh.write(bytesOut)
 
+
+if __name__ == '__main__':
+    dataStream = DataStream('./EEG1.txt')
 
