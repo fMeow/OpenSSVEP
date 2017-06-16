@@ -1,17 +1,113 @@
-BoxLayout:
-    orientation: 'horizontal'
+#:import MDLabel kivymd.label.MDLabel
+#:import MDCard kivymd.card.MDCard
+#:import FigureCanvasKivy kivy.garden.matplotlib.FigureCanvasKivy
 
-    BoxLayout:
-        orientation: 'vertical'
+<FFT>:
+	orientation: 'vertical'
+	spacing:'5dp'
+	BoxLayout:
+		#padding:'5dp'
+		spacing:'20dp'
+		size_hint:(1,0.1)
+		Label:
+			id:FFTstate
+			text:'No signal'
+#		ToggleButton:
+#			text:'256'
+#			group:'FFT'
+#			state:'down'
+#		ToggleButton:
+#			text:'512'
+#			group:'FFT'
+#		ToggleButton:
+#			text:'1024'
+#			group:'FFT'
+<Test>:
+    orientation: 'vertical'
+	BoxLayout:
+		orientation: 'horizontal'
+		padding:'10sp'
+		spacing:'10sp'
+		canvas.before:
+			Rectangle:
+				pos: self.pos
+				size: self.size
+				source:'ui_template/background.jpg'
 
-        Camera:
-            #orientation: 'vertical'
-            id: camera
-            resolution: 640,480
-        Button:
-            text:'camera'
+		BoxLayout:
+			orientation: 'vertical'
+			padding:'10dp'
+			spacing:'10dp'
 
-    BoxLayout:
-        orientation: 'vertical'
-        Button:
-            text:'test'
+			Camera:
+				#orientation: 'vertical'
+				id: camera
+				resolution: 640,480
+				play: True
+			FFT:
+				#color:0,1,0,0.5
+				id:realTimeFFT
+				text:'FFT'
+				#background_normal: 'images/button_normal.png'
+
+		BoxLayout:
+			orientation: 'vertical'
+			padding:"10sp"
+			spacing:"10sp"
+
+			CodeInput:
+				size_hint:(1,0.3)
+				text:"Please input your password"
+
+			GridLayout:
+				padding:"10sp"
+				spacing:"10sp"
+				cols:3
+
+				Button:
+					id:button1
+					text:'1'
+
+				Button:
+					id:button2
+					text:'2'
+
+				Button:
+					id:button3
+					text:'3'
+
+				Button:
+					id:button4
+					text:'4'
+
+				Button:
+					id:button5
+					text:'5'
+
+				Button:
+					id:button6
+					text:'6'
+
+				Button:
+					id:button7
+					text:'7'
+
+				Button:
+					id:button8
+					text:'8'
+
+				Button:
+					id:button9
+					text:'9'
+
+				Button:
+					id:buttonConfirm
+					text:'Confirm'
+
+				Button:
+					id:button0
+					text:'0'
+
+				Button:
+					id:buttonCancel
+					text:'Cancel'
