@@ -8,9 +8,6 @@
 		#padding:'5dp'
 		spacing:'20dp'
 		size_hint:(1,0.1)
-		Label:
-			id:FFTstate
-			text:'No signal'
 #		ToggleButton:
 #			text:'256'
 #			group:'FFT'
@@ -62,11 +59,8 @@
 			padding:'10dp'
 			spacing:'10dp'
 
-			Camera:
-				#orientation: 'vertical'
-				id: camera
-				resolution: 640,480
-				play: True
+			FFT:
+				id: FFT
 
 			RealTimePlotting:
 				#color:0,1,0,0.5

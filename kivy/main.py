@@ -82,10 +82,11 @@ class FFT(BoxLayout):
     fftLen = 1024
     plotScale = 1 # After FFT there are much points as fftLen/2 to plot. Considerable to reduce the points.
 
+    # Temporary data for storing points which is used to plot FFT
+    data = []
+
     def __init__(self,**kwargs):
         super(FFT,self).__init__(**kwargs)
-
-        self.fps = App.get_running_app().fps
 
         # Configure real time fft figure with matplotlib
         self.fig, self.ax = plt.subplots()
@@ -101,6 +102,7 @@ class FFT(BoxLayout):
 
         fPos = self.f[self.f>=0]
         fPlot = [fPos[i]  for i in range(len(fPos)) if np.mod(i,self.plotScale) == 0 ]
+        self.plotLen = len(fPlot)
 
         # Plot x data once. Then we only need to update y data
         self.ax.set_xlim([np.min(fPlot),np.max(fPlot)*1.1])
@@ -108,45 +110,52 @@ class FFT(BoxLayout):
 
         self.add_widget(self.fig.canvas)
 
-    def start(self):
-        Clock.unschedule(self.refresh)
-        Clock.schedule_interval(self.refresh,1/self.fps)
+#    def start(self):
+#        Clock.unschedule(self.refresh)
+#        Clock.schedule_interval(self.refresh,1/self.fps)
+#
+#    def stop(self):
+#        Clock.unschedule(self.refresh)
+#        self.FFTplot.set_ydata(np.zeros(self.fftLen))
+#        self.ax.set_ylim([-1,1])
+#        plt.draw()
 
-    def stop(self):
-        Clock.unschedule(self.refresh)
-        self.FFTplot.set_ydata(np.zeros(self.fftLen))
+    def clear(self):
+        self.FFTplot.set_ydata(np.zeros(self.plotLen).tolist())
         self.ax.set_ylim([-1,1])
-        plt.draw()
+        plt.draw_all()
 
-    def refresh(self,dt):
-        App.get_running_app().data.extend(App.get_running_app().readFromSerial())
-        if len(App.get_running_app().data) >= self.length:
-            logging.info("Refreshing. Length of data:%d"%(len(App.get_running_app().data)))
-            # Clear
-            #self.ax.cla()
+    def refresh(self):
+        self.data.extend(App.get_running_app().data)
+        if len(self.data) < self.length:
+            return False
+        #logging.info("Refreshing. Length of data:%d"%(len(self.data)))
+        # Clear
+        #self.ax.cla()
 
-            # Get data
-            y = App.get_running_app().data[0:self.length+1]
+        # Get data
+        y = self.data[0:self.length+1]
 
-            # Perform 512 point FFT to improve resolution
-            Y = np.fft.fft(y,self.fftLen)
+        # Perform 512 point FFT to improve resolution
+        Y = np.fft.fft(y,self.fftLen)
 
-            # deal with amplitude scale and choose the positive half
-            #Yamp = np.abs(Y/self.fftLen)
-            #YampHalf = Yamp[f>=0]
-            YampPos = np.abs(Y[self.f>=0]/self.fftLen)
-            YampPos[1:-1] = YampPos[1:-1] * 2
+        # deal with amplitude scale and choose the positive half
+        #Yamp = np.abs(Y/self.fftLen)
+        #YampHalf = Yamp[f>=0]
+        YampPos = np.abs(Y[self.f>=0]/self.fftLen)
+        YampPos[1:-1] = YampPos[1:-1] * 2
 
-            YPlot = [YampPos[i]  for i in range(len(YampPos)) if np.mod(i,self.plotScale)==0 ]
+        YPlot = [YampPos[i]  for i in range(len(YampPos)) if np.mod(i,self.plotScale)==0 ]
 
-            self.FFTplot.set_ydata(YPlot)
-            padding = (np.max(YPlot) - np.min(YPlot)) * 0.1
-            if padding > 200:
-                self.ax.set_ylim([np.min(YPlot)-padding,np.max(YPlot)+padding])
-            plt.draw()
-            #self.ax.plot(fPlot,YPlot)
-            # Update stored data from BCI device
-            App.get_running_app().data = App.get_running_app().data[self.length:]
+        self.FFTplot.set_ydata(YPlot)
+        padding = (np.max(YPlot) - np.min(YPlot)) * 0.1
+        # TODO To improve figure ylimits stability
+        if padding > 1:
+            self.ax.set_ylim([np.min(YPlot)-padding,np.max(YPlot)+padding])
+        plt.draw_all()
+        #self.ax.plot(fPlot,YPlot)
+        # Update stored data from BCI device
+        self.data = self.data[self.length:]
 
 class RealTimePlotting(BoxLayout):
 
@@ -156,7 +165,6 @@ class RealTimePlotting(BoxLayout):
 
     def __init__(self,**kwargs):
         super(RealTimePlotting ,self).__init__(**kwargs)
-        self.fps = App.get_running_app().fps
 
         # Configure real time fft figure with matplotlib
         self.fig, self.ax = plt.subplots()
@@ -177,19 +185,24 @@ class RealTimePlotting(BoxLayout):
 
         self.add_widget(self.fig.canvas)
 
-    def start(self):
-        Clock.unschedule(self.refresh)
-        Clock.schedule_interval(self.refresh,1/self.fps)
+#    def start(self):
+#        Clock.unschedule(self.refresh)
+#        Clock.schedule_interval(self.refresh,1/self.fps)
 
-    def stop(self):
-        Clock.unschedule(self.refresh)
-        self.RealTimePlot.set_ydata(np.zeros(self.length))
+#    def stop(self):
+#        Clock.unschedule(self.refresh)
+#        self.RealTimePlot.set_ydata(np.zeros(self.length))
+#        self.ax.set_ylim([-1,1])
+#        plt.draw()
+
+    def clear(self):
+        self.RealTimePlot.set_ydata(np.zeros(self.length).tolist())
         self.ax.set_ylim([-1,1])
-        plt.draw()
+        plt.draw_all()
 
-    def refresh(self, dt):
+    def refresh(self):
         # TODO Now real time plotting and FFT cannot be showed on the same time
-        data = App.get_running_app().readFromSerial()
+        data = App.get_running_app().data
 
         if data is None:
             data=[]
@@ -204,9 +217,10 @@ class RealTimePlotting(BoxLayout):
 
         self.RealTimePlot.set_ydata(y)
         padding = (np.max(y) - np.min(y)) * 0.1
-        if padding > 200:
+        # TODO To improve figure ylimits stability
+        if padding > 20:
             self.ax.set_ylim([np.min(y)-padding,np.max(y)+padding])
-        plt.draw()
+        plt.draw_all()
 
 class Test(BoxLayout):
     """Test Layout"""
@@ -242,13 +256,23 @@ class BCIApp(App):
         """
         super(BCIApp,self).__init__(**kwargs)
 
+    def __read(self,dt):
+        # data is a Listproperty, so on_data() will be called whenever data has been changed. on_data() will be called right after the following line.
+        self.data = self.__readFromSerial()
+
+    def on_data(self,instance,data):
+        self.root.ids['RealTimePlotting'].refresh()
+        self.root.ids['FFT'].refresh()
+
     def connect(self,port='/dev/ttyUSB0'):
         try:
             # serial part
             # TODO serial should be opened after face recognition finished
             self.ser = serial.Serial(port = port,baudrate = 38400, bytesize=8,parity='N',stopbits=1)
             # enable real time time-domain or/and frequency-domain plotting
-            self.root.ids['RealTimePlotting'].start()
+            Clock.schedule_interval(self.__read,1/self.fps)
+            #self.root.ids['RealTimePlotting'].start()
+            #self.root.ids['FFT'].start()
 
             return True
         except SerialException:
@@ -257,11 +281,19 @@ class BCIApp(App):
 
     def disconnect(self):
         try:
+            # Stop event
+            Clock.unschedule(self.__read)
+
+            # Close connection
             self.ser.close()
-            self.root.ids['RealTimePlotting'].stop()
+
+            # Clear Figures
+            self.root.ids['RealTimePlotting'].clear()
+            self.root.ids['FFT'].clear()
         except AttributeError:
             # self.ser is None. We have not connect to any available serial device
             pass
+
 
     def build(self):
         return Test()
@@ -289,7 +321,7 @@ class BCIApp(App):
         data = struct.unpack('<i', dataHex)[0]
         return data
 
-    def readFromSerial(self,protocol='EasyBCISingleChannel'):
+    def __readFromSerial(self,protocol='EasyBCISingleChannel'):
         """TODO: Docstring for readFromSerial.
         :protocol:protocol type. Should be 'EasyBCISingleChannel'.
         :ser: Serial Object
@@ -307,7 +339,7 @@ class BCIApp(App):
         rawData = ser.read_all()
 
         # Get data remaining in the last run
-        rawRemained = App.get_running_app().rawRemained
+        rawRemained = self.rawRemained
         raw = rawRemained + rawData
 
         dataList= []
@@ -337,11 +369,11 @@ class BCIApp(App):
                         dataHex = rawDataPack[2:6] # first data
                         dataList.append(self.__dataHex2int(dataHex))
 
-                        dataHex = rawDataPack[7:11] # second dats
+                        dataHex = rawDataPack[7:11] # second data
                         dataList.append(self.__dataHex2int(dataHex))
                         lastIndex = index + 12
             # Update remaining raw data
-            App.get_running_app().rawRemained = raw[lastIndex:]
+            self.rawRemained = raw[lastIndex:]
             return self.__rawData2Voltage(dataList)
 
         else:
