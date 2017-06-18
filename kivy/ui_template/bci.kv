@@ -1,6 +1,5 @@
 #:import MDLabel kivymd.label.MDLabel
 #:import MDCard kivymd.card.MDCard
-#:import FigureCanvasKivy kivy.garden.matplotlib.FigureCanvasKivy
 
 <FFT>:
 	orientation: 'vertical'
@@ -22,12 +21,36 @@
 #		ToggleButton:
 #			text:'1024'
 #			group:'FFT'
+
+<SerialPortSelection>:
+	padding:'10dp'
+	spacing:'10dp'
+	orientation:'horizontal'
+	Spinner:
+		id:uart
+		#text:''
+		#values:()
+		size_hint:(0.7,1)
+
+	ToggleButton:
+		id:connect
+		size_hint:(0.2,1)
+		text:'Connect'
+		on_state: self.parent.changeState(self.state)
+
+	Button:
+		size_hint:(0.2,1)
+		text:'Refresh'
+		on_press: self.parent.scanPorts(0)
+
+<RealTimePlotting>:
+	orientation:'vertical'
 <Test>:
     orientation: 'vertical'
 	BoxLayout:
 		orientation: 'horizontal'
-		padding:'10sp'
-		spacing:'10sp'
+		padding:'10dp'
+		spacing:'10dp'
 		canvas.before:
 			Rectangle:
 				pos: self.pos
@@ -44,24 +67,29 @@
 				id: camera
 				resolution: 640,480
 				play: True
-			FFT:
+
+			RealTimePlotting:
 				#color:0,1,0,0.5
-				id:realTimeFFT
-				text:'FFT'
+				#id:realTimeFFT
+				id:RealTimePlotting
+				#text:'FFT'
 				#background_normal: 'images/button_normal.png'
+			SerialPortSelection:
+				size_hint:(1,0.2)
+				#sync_height: True
 
 		BoxLayout:
 			orientation: 'vertical'
-			padding:"10sp"
-			spacing:"10sp"
+			padding:'10dp'
+			spacing:'10dp'
 
 			CodeInput:
 				size_hint:(1,0.3)
-				text:"Please input your password"
+				text:'Please input your password'
 
 			GridLayout:
-				padding:"10sp"
-				spacing:"10sp"
+				padding:'10dp'
+				spacing:'10dp'
 				cols:3
 
 				Button:
