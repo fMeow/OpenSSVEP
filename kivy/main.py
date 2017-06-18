@@ -246,7 +246,7 @@ class BCIApp(App):
     fps = 30
     data = ListProperty([])
     # Buffer
-    rawRemained = StringProperty(str('')) # raw Data from serial, this should contain the data unused last time
+    rawRemained = b'' # raw Data from serial, this should contain the data unused last time
     ser = None
 
 
@@ -256,7 +256,7 @@ class BCIApp(App):
         """
         super(BCIApp,self).__init__(**kwargs)
 
-    def __read(self,dt):
+    def _read(self,dt):
         # data is a Listproperty, so on_data() will be called whenever data has been changed. on_data() will be called right after the following line.
         self.data = self.__readFromSerial()
 
@@ -270,7 +270,7 @@ class BCIApp(App):
             # TODO serial should be opened after face recognition finished
             self.ser = serial.Serial(port = port,baudrate = 38400, bytesize=8,parity='N',stopbits=1)
             # enable real time time-domain or/and frequency-domain plotting
-            Clock.schedule_interval(self.__read,1/self.fps)
+            Clock.schedule_interval(self._read,1/self.fps)
             #self.root.ids['RealTimePlotting'].start()
             #self.root.ids['FFT'].start()
 
@@ -282,7 +282,7 @@ class BCIApp(App):
     def disconnect(self):
         try:
             # Stop event
-            Clock.unschedule(self.__read)
+            Clock.unschedule(self._read)
 
             # Close connection
             self.ser.close()
@@ -350,7 +350,7 @@ class BCIApp(App):
             middle = b'\xa1'
             lastIndex = 0
             # find possible index by search raw data for which is the same with bytes indicating start
-            possibleIndex = [i for i in range(len(raw)) if raw[i] == start ]
+            possibleIndex = [i for i in range(len(raw)) if raw[i:i+1] == start ]
             # To validate possibleIndex, we should check whether the byte indicating middle comflies.
             for index in possibleIndex :
                 middleIndex = index + 6
@@ -358,12 +358,16 @@ class BCIApp(App):
                     raw[middleIndex]
                 except Exception as e:
                     continue
-                if raw[middleIndex] == middle:
+                if raw[middleIndex:middleIndex+1] == middle:
                     # middle byte does comply, so extract the pack
                     rawDataPack = raw[index:index+12]
-                    # TODO given check code is smaller than protocol
-                    checkCode = sum([ord(data) for data in rawDataPack[0:-1]])%256
-                    if ord(rawDataPack[-1]) == checkCode:
+                    try:
+                        # Python 2
+                        checkCode = sum([ord(data) for data in rawDataPack[0:-1]])%256
+                    except Exception:
+                        # Python 3
+                        checkCode = sum([data for data in rawDataPack[0:-1]])%256
+                    if ord(rawDataPack[-1::]) == checkCode:
                         # All validation steps passed
                         # convert hex to int
                         dataHex = rawDataPack[2:6] # first data
