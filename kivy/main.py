@@ -16,6 +16,8 @@ from serial import SerialException
 import numpy as np
 from scipy import signal
 
+from functools import partial
+
 # Kivy Material Design
 from kivymd.theming import ThemeManager
 
@@ -232,13 +234,18 @@ class Test(BoxLayout):
         :returns: TODO
         """
         super(Test,self).__init__(**kwargs)
+        for i in range(12):
+            Clock.schedule_interval(partial(self.blinking,i),1/(i+10))
 
+    def blinking(self,idx,dt):
+        widgetID = 'button%d' % idx
+        if self.ids[widgetID].state == 'normal':
+            self.ids[widgetID].state = 'down'
+            self.ids[widgetID].trigger_action(0.01)
+        if self.ids[widgetID].state == 'down':
+            self.ids[widgetID].state = 'normal'
+            self.ids[widgetID].trigger_action(0.01)
 
-    def on_start(self):
-        """ Event when started.
-        :returns: TODO
-        """
-        pass
 
 class BCIApp(App):
     # Settings

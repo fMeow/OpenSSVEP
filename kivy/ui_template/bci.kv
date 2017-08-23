@@ -1,5 +1,10 @@
 #:import Label kivymd.label.Label
 
+<FlashButton@Button>
+	background_color: (0,0,0,1) if self.state == 'normal' else (1,1,1,1)
+	background_normal: 'disable.png'
+	background_down: 'disable.png'
+
 <FFT>:
 	orientation: 'vertical'
 	spacing:'5dp'
@@ -85,50 +90,50 @@
 				spacing:'10dp'
 				cols:3
 
-				Button:
+				FlashButton:
 					id:button1
 					text:'1'
 
-				Button:
+				FlashButton:
 					id:button2
 					text:'2'
 
-				Button:
+				FlashButton:
 					id:button3
 					text:'3'
 
-				Button:
+				FlashButton:
 					id:button4
 					text:'4'
 
-				Button:
+				FlashButton:
 					id:button5
 					text:'5'
 
-				Button:
+				FlashButton:
 					id:button6
 					text:'6'
 
-				Button:
+				FlashButton:
 					id:button7
 					text:'7'
 
-				Button:
+				FlashButton:
 					id:button8
 					text:'8'
 
-				Button:
+				FlashButton:
 					id:button9
 					text:'9'
 
-				Button:
-					id:buttonConfirm
+				FlashButton:
+					id:button10
 					text:'Confirm'
 
-				Button:
+				FlashButton:
 					id:button0
 					text:'0'
 
-				Button:
-					id:buttonCancel
+				FlashButton:
+					id:button11
 					text:'Cancel'
