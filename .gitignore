@@ -3,3 +3,4 @@ tags
 *.bin
 *.hex
 SSVEP脑机接口/*
+.DS_Store
