@@ -2,6 +2,7 @@ from __future__ import print_function,unicode_literals,with_statement,division
 
 # kivy related
 import matplotlib
+import threading
 matplotlib.use('module://kivy.garden.matplotlib.backend_kivy')
 from matplotlib import pyplot as plt
 #import matplotlib.animation as animation
@@ -234,8 +235,8 @@ class Test(BoxLayout):
         :returns: TODO
         """
         super(Test,self).__init__(**kwargs)
-        for i in range(12):
-            Clock.schedule_interval(partial(self.blinking,i),1/(i+10))
+        #  for i in range(12):
+            #  Clock.schedule_interval(partial(self.blinking,i),1/(0+10))
 
     def blinking(self,idx,dt):
         widgetID = 'button%d' % idx
@@ -271,11 +272,33 @@ class BCIApp(App):
         self.root.ids['RealTimePlotting'].refresh()
         self.root.ids['FFT'].refresh()
 
+    def __send_command(self,command):
+            import time
+            self.ser.write(command)
+            time.sleep(1)
+            #  state = self.ser.read_all()
+            #  if b'START' not in command and b'OK' not in state:
+                #  print(str(command) + " Error")
+                #  print(state)
+
+    def __configure_easybci(self):
+            self.__send_command(b"RDM+STOP")
+            self.__send_command(b"RDM+FILTER=OFF")
+            self.__send_command(b"RDM+LOFF=OFF")
+            self.__send_command(b"RDM+MODE=R1CH")
+            self.__send_command(b"RDM+START")
+
+    def __configure_easybci_thread(self):
+        t = threading.Thread(target=self.__configure_easybci)
+        t.start()
+
     def connect(self,port='/dev/ttyUSB0'):
         try:
             # serial part
             # TODO serial should be opened after face recognition finished
-            self.ser = serial.Serial(port = port,baudrate = 38400, bytesize=8,parity='N',stopbits=1)
+            self.ser = serial.Serial(port = port,baudrate = 38400, bytesize=8,parity='N',stopbits=1, write_timeout=0)
+            self.__configure_easybci_thread()
+
             # enable real time time-domain or/and frequency-domain plotting
             Clock.schedule_interval(self._read,1/self.fps)
             #self.root.ids['RealTimePlotting'].start()
@@ -309,10 +332,11 @@ class BCIApp(App):
         """ convert rawData to exact voltage
 
         :rawData: a list of rawData
-        :returns: converted voltage tupple in mV
+        :returns: converted voltage tupple in uV
 
         """
         raw = np.array(rawData)
+        raw = raw[raw!=None]
         # 2.42 is the referrence voltage of BCI device, 24 is the sampling resolution
         dataVol = 2.42 / 2**24 / gainCoefficient * raw
         dataVol = dataVol * 1e6 # convert uints to uV
@@ -325,8 +349,11 @@ class BCIApp(App):
         :returns: int
         """
         # 'i' means signed integer, '<' means little-endian
-        data = struct.unpack('<i', dataHex)[0]
-        return data
+        try:
+            data = struct.unpack('<i', dataHex)[0]
+            return data
+        except Exception:
+            pass
 
     def __readFromSerial(self,protocol='EasyBCISingleChannel'):
         """TODO: Docstring for readFromSerial.
@@ -343,7 +370,16 @@ class BCIApp(App):
         ser = self.ser
 
         # Read cureent all available data
-        rawData = ser.read_all()
+        try:
+            rawData = ser.read_all()
+        except OSError:
+            # serial device unplugged
+            # Stop event
+            Clock.unschedule(self._read)
+
+            # Clear Figures
+            self.root.ids['RealTimePlotting'].clear()
+            self.root.ids['FFT'].clear()
 
         # Get data remaining in the last run
         rawRemained = self.rawRemained
@@ -383,6 +419,9 @@ class BCIApp(App):
                         dataHex = rawDataPack[7:11] # second data
                         dataList.append(self.__dataHex2int(dataHex))
                         lastIndex = index + 12
+
+                        # 接触检测
+                        connectState = (rawDataPack[1] & 0xC0) >> 6
             # Update remaining raw data
             self.rawRemained = raw[lastIndex:]
             return self.__rawData2Voltage(dataList)
@@ -391,4 +430,8 @@ class BCIApp(App):
             raise Exception('protocol should be EasyBCISingleChannel')
 
 if __name__ == '__main__':
-    BCIApp().run()
+    try:
+        BCIApp().run()
+    except KeyboardInterrupt:
+        if BCIApp.ser is not None:
+            BCIApp.ser.close()
