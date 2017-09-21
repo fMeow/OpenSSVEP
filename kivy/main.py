@@ -19,6 +19,10 @@ from scipy import signal
 
 from functools import partial
 
+from colorama import Fore, Back, Style, init
+import logging
+from ipdb import set_trace
+
 # Kivy Material Design
 from kivymd.theming import ThemeManager
 
@@ -153,7 +157,7 @@ class FFT(BoxLayout):
         self.FFTplot.set_ydata(YPlot)
         padding = (np.max(YPlot) - np.min(YPlot)) * 0.1
         # TODO To improve figure ylimits stability
-        if padding > 1:
+        if padding > 0.1:
             self.ax.set_ylim([np.min(YPlot)-padding,np.max(YPlot)+padding])
         plt.draw_all()
         #self.ax.plot(fPlot,YPlot)
@@ -221,7 +225,7 @@ class RealTimePlotting(BoxLayout):
         self.RealTimePlot.set_ydata(y)
         padding = (np.max(y) - np.min(y)) * 0.1
         # TODO To improve figure ylimits stability
-        if padding > 20:
+        if padding > 0.1:
             self.ax.set_ylim([np.min(y)-padding,np.max(y)+padding])
         plt.draw_all()
 
@@ -262,11 +266,13 @@ class BCIApp(App):
         """ Initializing serial
         :returns: TODO
         """
+        init(autoreset=True)
         super(BCIApp,self).__init__(**kwargs)
 
     def _read(self,dt):
         # data is a Listproperty, so on_data() will be called whenever data has been changed. on_data() will be called right after the following line.
-        self.data = self.__readFromSerial()
+        if self.ser.inWaiting() > 0:
+            self.data = self.__readFromSerial()
 
     def on_data(self,instance,data):
         self.root.ids['RealTimePlotting'].refresh()
@@ -292,12 +298,12 @@ class BCIApp(App):
         t = threading.Thread(target=self.__configure_easybci)
         t.start()
 
-    def connect(self,port='/dev/ttyUSB0'):
+    def connect(self,port='/dev/ttyUSB0',baudrate=38400):
         try:
             # serial part
             # TODO serial should be opened after face recognition finished
-            self.ser = serial.Serial(port = port,baudrate = 38400, bytesize=8,parity='N',stopbits=1, write_timeout=0)
-            self.__configure_easybci_thread()
+            self.ser = serial.Serial(port = port,baudrate = baudrate, bytesize=8,parity='N',stopbits=1, write_timeout=0)
+            #  self.__configure_easybci_thread()
 
             # enable real time time-domain or/and frequency-domain plotting
             Clock.schedule_interval(self._read,1/self.fps)
@@ -337,9 +343,9 @@ class BCIApp(App):
         """
         raw = np.array(rawData)
         raw = raw[raw!=None]
-        # 2.42 is the referrence voltage of BCI device, 24 is the sampling resolution
-        dataVol = 2.42 / 2**24 / gainCoefficient * raw
-        dataVol = dataVol * 1e6 # convert uints to uV
+        # 2.42 is the referrence voltage of BCI device, 23 is the sampling resolution
+        dataVol = 4.033 / 2**23 / gainCoefficient * raw /2**8
+        dataVol = dataVol * 1e3 # convert uints to uV
         return tuple(dataVol)
 
     def __dataHex2int(self, dataHex):
@@ -394,6 +400,7 @@ class BCIApp(App):
             lastIndex = 0
             # find possible index by search raw data for which is the same with bytes indicating start
             possibleIndex = [i for i in range(len(raw)) if raw[i:i+1] == start ]
+            rawLen = len(raw)
             # To validate possibleIndex, we should check whether the byte indicating middle comflies.
             for index in possibleIndex :
                 middleIndex = index + 6
@@ -404,6 +411,11 @@ class BCIApp(App):
                 if raw[middleIndex:middleIndex+1] == middle:
                     # middle byte does comply, so extract the pack
                     rawDataPack = raw[index:index+12]
+                    try:
+                        rawDataPack[11]
+                    except IndexError:
+                        break
+
                     try:
                         # Python 2
                         checkCode = sum([ord(data) for data in rawDataPack[0:-1]])%256
@@ -422,14 +434,21 @@ class BCIApp(App):
 
                         # 接触检测
                         connectState = (rawDataPack[1] & 0xC0) >> 6
+                    else:
+                        # if index + 12 <= rawLen:
+                        logging.warning('Check Code: %s Fail with CheckCode %s.' %(rawDataPack, checkCode))
             # Update remaining raw data
             self.rawRemained = raw[lastIndex:]
             return self.__rawData2Voltage(dataList)
 
         else:
+            # Exclude the last and incomplete data
             raise Exception('protocol should be EasyBCISingleChannel')
 
 if __name__ == '__main__':
+    #  logging.basicConfig(level=logging.INFO,
+                #  format='%(asctime)s %(filename)s[line:%(lineno)d] %(levelname)s %(message)s',
+                #  datefmt='%H:%M:%S')
     try:
         BCIApp().run()
     except KeyboardInterrupt:
