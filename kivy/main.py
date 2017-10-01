@@ -11,6 +11,7 @@ from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.popup import Popup
 from kivy.clock import Clock
 from kivy.properties import StringProperty,ListProperty
+from kivy.uix.screenmanager import ScreenManager, Screen
 
 import serial,struct,logging,serial.tools.list_ports
 from serial import SerialException
@@ -43,8 +44,8 @@ class SerialPortSelection(BoxLayout):
     def popupHintOnConnectionFailedConfig(self,dt=0):
         # Connection Failed popup hint configuration
         self.popup = Popup(title='Connection Failed',id='popup')
-        App.get_running_app().root.add_widget(self.popup)
-        App.get_running_app().root.remove_widget(self.popup)
+        App.get_running_app().root.current_screen.add_widget(self.popup)
+        App.get_running_app().root.current_screen.remove_widget(self.popup)
 
     def changeState(self,state):
         if state == 'down':
@@ -83,10 +84,10 @@ class SerialPortSelection(BoxLayout):
 class FFT(BoxLayout):
     """ Real Time frequency-domain Plotting """
 
-    length = 128 # FFT length
+    length = 250 # FFT length
     fs = 125 # FFT Sampling rate
     ts = 1.0/fs # Sampling interval
-    fftLen = 1024
+    fftLen = 512
     plotScale = 1 # After FFT there are much points as fftLen/2 to plot. Considerable to reduce the points.
 
     # Temporary data for storing points which is used to plot FFT
@@ -127,7 +128,7 @@ class FFT(BoxLayout):
 #        self.ax.set_ylim([-1,1])
 #        plt.draw()
 
-    def clear(self):
+    def clear(self, dt=0):
         self.FFTplot.set_ydata(np.zeros(self.plotLen).tolist())
         self.ax.set_ylim([-1,1])
         plt.draw_all()
@@ -167,7 +168,8 @@ class FFT(BoxLayout):
 class RealTimePlotting(BoxLayout):
 
     fs = 125
-    length = 125 * 10
+    length = 125 * 3
+    #  band = np.array([49,51])
     """Real Time time-domain Plotting """
 
     def __init__(self,**kwargs):
@@ -202,7 +204,7 @@ class RealTimePlotting(BoxLayout):
 #        self.ax.set_ylim([-1,1])
 #        plt.draw()
 
-    def clear(self):
+    def clear(self,dt=0):
         self.RealTimePlot.set_ydata(np.zeros(self.length).tolist())
         self.ax.set_ylim([-1,1])
         plt.draw_all()
@@ -222,6 +224,8 @@ class RealTimePlotting(BoxLayout):
             y = y[dump:]
         y.extend(data)
 
+        #  b,a = signal.butter(4,2 * np.pi * self.band/self.fs,'bandstop')
+        #  y_filtered = signal.lfilter(b,a,y)
         self.RealTimePlot.set_ydata(y)
         padding = (np.max(y) - np.min(y)) * 0.1
         # TODO To improve figure ylimits stability
@@ -229,7 +233,7 @@ class RealTimePlotting(BoxLayout):
             self.ax.set_ylim([np.min(y)-padding,np.max(y)+padding])
         plt.draw_all()
 
-class Test(BoxLayout):
+class Test(Screen):
     """Test Layout"""
     # Settings
     theme_cls = ThemeManager()
@@ -239,8 +243,10 @@ class Test(BoxLayout):
         :returns: TODO
         """
         super(Test,self).__init__(**kwargs)
-        #  for i in range(12):
-            #  Clock.schedule_interval(partial(self.blinking,i),1/(0+10))
+        ''' BLINKING
+        '''
+        for i in range(12):
+            Clock.schedule_interval(partial(self.blinking,i),1/(0+12))
 
     def blinking(self,idx,dt):
         widgetID = 'button%d' % idx
@@ -269,36 +275,43 @@ class BCIApp(App):
         init(autoreset=True)
         super(BCIApp,self).__init__(**kwargs)
 
+
+    def build(self):
+        root = ScreenManager()
+        root.add_widget(Test(name='bci'))
+        return root
+
     def _read(self,dt):
         # data is a Listproperty, so on_data() will be called whenever data has been changed. on_data() will be called right after the following line.
         if self.ser.inWaiting() > 0:
             self.data = self.__readFromSerial()
+            #  logging.info(len(self.data))
 
     def on_data(self,instance,data):
-        self.root.ids['RealTimePlotting'].refresh()
-        self.root.ids['FFT'].refresh()
+        self.root.current_screen.ids['RealTimePlotting'].refresh()
+        self.root.current_screen.ids['FFT'].refresh()
 
-    def __send_command(self,command):
-            import time
-            self.ser.write(command)
-            time.sleep(1)
-            #  state = self.ser.read_all()
-            #  if b'START' not in command and b'OK' not in state:
-                #  print(str(command) + " Error")
-                #  print(state)
+    #  def __send_command(self,command):
+            #  import time
+            #  self.ser.write(command)
+            #  time.sleep(1)
+            #  #  state = self.ser.read_all()
+            #  #  if b'START' not in command and b'OK' not in state:
+                #  #  print(str(command) + " Error")
+                #  #  print(state)
 
-    def __configure_easybci(self):
-            self.__send_command(b"RDM+STOP")
-            self.__send_command(b"RDM+FILTER=OFF")
-            self.__send_command(b"RDM+LOFF=OFF")
-            self.__send_command(b"RDM+MODE=R1CH")
-            self.__send_command(b"RDM+START")
+    #  def __configure_easybci(self):
+            #  self.__send_command(b"RDM+STOP")
+            #  self.__send_command(b"RDM+FILTER=OFF")
+            #  self.__send_command(b"RDM+LOFF=OFF")
+            #  self.__send_command(b"RDM+MODE=R1CH")
+            #  self.__send_command(b"RDM+START")
 
-    def __configure_easybci_thread(self):
-        t = threading.Thread(target=self.__configure_easybci)
-        t.start()
+    #  def __configure_easybci_thread(self):
+        #  t = threading.Thread(target=self.__configure_easybci)
+        #  t.start()
 
-    def connect(self,port='/dev/ttyUSB0',baudrate=38400):
+    def connect(self,port='/dev/ttyUSB0',baudrate=115200):
         try:
             # serial part
             # TODO serial should be opened after face recognition finished
@@ -324,15 +337,14 @@ class BCIApp(App):
             self.ser.close()
 
             # Clear Figures
-            self.root.ids['RealTimePlotting'].clear()
-            self.root.ids['FFT'].clear()
+            Clock.schedule_once(self.root.current_screen.ids['RealTimePlotting'].clear,1)
+            Clock.schedule_once(self.root.current_screen.ids['FFT'].clear,1)
+            #  self.root.current_screen.ids['RealTimePlotting'].clear()
+            #  self.root.current_screen.ids['FFT'].clear()
         except AttributeError:
             # self.ser is None. We have not connect to any available serial device
             pass
 
-
-    def build(self):
-        return Test()
 
     def __rawData2Voltage(self, rawData,gainCoefficient=12):
         """ convert rawData to exact voltage
@@ -345,7 +357,7 @@ class BCIApp(App):
         raw = raw[raw!=None]
         # 2.42 is the referrence voltage of BCI device, 23 is the sampling resolution
         dataVol = 4.033 / 2**23 / gainCoefficient * raw /2**8
-        dataVol = dataVol * 1e3 # convert uints to uV
+        dataVol = dataVol * 1e6 # convert uints to uV
         return tuple(dataVol)
 
     def __dataHex2int(self, dataHex):
@@ -422,7 +434,7 @@ class BCIApp(App):
                     except Exception:
                         # Python 3
                         checkCode = sum([data for data in rawDataPack[0:-1]])%256
-                    if ord(rawDataPack[-1::]) == checkCode:
+                    if ord(rawDataPack[11:]) == checkCode:
                         # All validation steps passed
                         # convert hex to int
                         dataHex = rawDataPack[2:6] # first data
@@ -436,7 +448,7 @@ class BCIApp(App):
                         connectState = (rawDataPack[1] & 0xC0) >> 6
                     else:
                         # if index + 12 <= rawLen:
-                        logging.warning('Check Code: %s Fail with CheckCode %s.' %(rawDataPack, checkCode))
+                        logging.warning('CheckCode: %s Fail with CheckCode %s%s%s' %(rawDataPack.hex(), Fore.RED, hex(checkCode)[2:], Style.RESET_ALL ) )
             # Update remaining raw data
             self.rawRemained = raw[lastIndex:]
             return self.__rawData2Voltage(dataList)
