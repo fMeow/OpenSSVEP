@@ -85,14 +85,11 @@ class SerialPortSelection(BoxLayout):
 class FFT(BoxLayout):
     """ Real Time frequency-domain Plotting """
 
-    length = 250 # FFT length
+    length = 128 # FFT length
     fs = 125 # FFT Sampling rate
     ts = 1.0/fs # Sampling interval
     fftLen = 512
-    plotScale = 1 # After FFT there are much points as fftLen/2 to plot. Considerable to reduce the points.
-
-    # Temporary data for storing points which is used to plot FFT
-    data = []
+    plotScale = 1 # (integer) After FFT there are much points as fftLen/2 to plot. Considerable to reduce the points.
 
     def __init__(self,**kwargs):
         super(FFT,self).__init__(**kwargs)
@@ -114,7 +111,8 @@ class FFT(BoxLayout):
         self.plotLen = len(fPlot)
 
         # Plot x data once. Then we only need to update y data
-        self.ax.set_xlim([np.min(fPlot),np.max(fPlot)*1.1])
+        padding = (np.max(fPlot) - np.min(fPlot)) * 0.02
+        self.ax.set_xlim([np.min(fPlot)-padding,np.max(fPlot)+padding])
         self.FFTplot, = self.ax.plot(fPlot,np.zeros_like(fPlot))
 
         self.add_widget(self.fig.canvas)
@@ -135,15 +133,15 @@ class FFT(BoxLayout):
         plt.draw_all()
 
     def refresh(self):
-        self.data.extend(App.get_running_app().data)
-        if len(self.data) < self.length:
+        data = App.get_running_app().data
+        if len(data) < self.length:
             return False
-        #logging.info("Refreshing. Length of data:%d"%(len(self.data)))
+        #  logging.info("Refreshing. Length of data:%d"%(len(data)))
         # Clear
         #self.ax.cla()
 
         # Get data
-        y = self.data[0:self.length+1]
+        y = data[-self.length:]
 
         # Perform 512 point FFT to improve resolution
         Y = np.fft.fft(y,self.fftLen)
@@ -163,13 +161,11 @@ class FFT(BoxLayout):
             self.ax.set_ylim([np.min(YPlot)-padding,np.max(YPlot)+padding])
         plt.draw_all()
         #self.ax.plot(fPlot,YPlot)
-        # Update stored data from BCI device
-        self.data = self.data[self.length:]
 
 class RealTimePlotting(BoxLayout):
 
     fs = 125
-    length = 125 * 2
+    length = 125 * 4
     #  band = np.array([49,51])
     """Real Time time-domain Plotting """
 
@@ -212,21 +208,14 @@ class RealTimePlotting(BoxLayout):
 
     def refresh(self):
         # TODO Now real time plotting and FFT cannot be showed on the same time
-        data = App.get_running_app().data
+        data = App.get_running_app().data[-self.length:]
 
         if data is None:
             data=[]
             logging.info("Nothong from serial. Please check UART connection.")
-        y = self.RealTimePlot.get_ydata()
-
-        newLen = len(y) + len(data)
-        dump = newLen - self.length
-        if dump > 0:
-            y = y[dump:]
-        y.extend(data)
-
         #  b,a = signal.butter(4,2 * np.pi * self.band/self.fs,'bandstop')
         #  y_filtered = signal.lfilter(b,a,y)
+        y = data
         self.RealTimePlot.set_ydata(y)
         padding = (np.max(y) - np.min(y)) * 0.1
         # TODO To improve figure ylimits stability
@@ -246,8 +235,8 @@ class Test(Screen):
         super(Test,self).__init__(**kwargs)
         ''' BLINKING
         '''
-        for i in range(12):
-            Clock.schedule_interval(partial(self.blinking,i),1/(0+12))
+        #  for i in range(12):
+            #  Clock.schedule_interval(partial(self.blinking,i),1/(0+12))
 
     def blinking(self,idx,dt):
         widgetID = 'button%d' % idx
@@ -262,12 +251,13 @@ class Test(Screen):
 class BCIApp(App):
     # Settings
     kv_directory = 'ui_template'
-    fps = 30
-    data = ListProperty([])
+    fps = 15
+    storedLen = 1024
+    data = ListProperty()
     # Buffer
     rawRemained = b'' # raw Data from serial, this should contain the data unused last time
     ser = None
-    tmp = b''
+    tmp = list()
 
 
     def __init__(self,**kwargs):
@@ -275,6 +265,7 @@ class BCIApp(App):
         :returns: TODO
         """
         init(autoreset=True)
+        self.data = np.zeros(self.storedLen).tolist()
         super(BCIApp,self).__init__(**kwargs)
 
 
@@ -286,12 +277,19 @@ class BCIApp(App):
     def _read_thread(self,dt):
         t = threading.Thread(target=self._read)
         t.start()
-        self.data = self.tmp
+
+        l = len(self.tmp)
+        if l > 0:
+            tmp = self.data[l:]
+            tmp.extend(list(self.tmp))
+            self.data = tmp
+            #  logging.info("len:%d"%len(self.tmp))
+        #  logging.info("len:%d"%len(self.data))
 
     def _read(self,dt=0):
         # data is a Listproperty, so on_data() will be called whenever data has been changed. on_data() will be called right after the following line.
         if self.ser.inWaiting() > 0:
-            self.tmp= self.__readFromSerial()
+            self.tmp = self.__readFromSerial()
             #  logging.info(len(self.data))
 
     def on_data(self,instance,data):
