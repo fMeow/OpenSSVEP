@@ -1,7 +1,7 @@
 import serial
 import time
 
-ser = serial.Serial(port = '/dev/cu.wchusbserial143310',baudrate = 115200, bytesize=8,parity='N',stopbits=1, write_timeout=0)
+ser = serial.Serial(port = '/dev/cu.wchusbserial143330',baudrate = 115200, bytesize=8,parity='N',stopbits=1, write_timeout=0)
 start = time.time()
 count = 0
 while True:

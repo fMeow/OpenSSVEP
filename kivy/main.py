@@ -5,6 +5,7 @@ import matplotlib
 import threading
 matplotlib.use('module://kivy.garden.matplotlib.backend_kivy')
 from matplotlib import pyplot as plt
+from kivy.garden.graph import MeshLinePlot
 #import matplotlib.animation as animation
 from kivy.app import App
 from kivy.uix.boxlayout import BoxLayout
@@ -168,7 +169,7 @@ class FFT(BoxLayout):
 class RealTimePlotting(BoxLayout):
 
     fs = 125
-    length = 125 * 3
+    length = 125 * 2
     #  band = np.array([49,51])
     """Real Time time-domain Plotting """
 
@@ -266,6 +267,7 @@ class BCIApp(App):
     # Buffer
     rawRemained = b'' # raw Data from serial, this should contain the data unused last time
     ser = None
+    tmp = b''
 
 
     def __init__(self,**kwargs):
@@ -281,10 +283,15 @@ class BCIApp(App):
         root.add_widget(Test(name='bci'))
         return root
 
-    def _read(self,dt):
+    def _read_thread(self,dt):
+        t = threading.Thread(target=self._read)
+        t.start()
+        self.data = self.tmp
+
+    def _read(self,dt=0):
         # data is a Listproperty, so on_data() will be called whenever data has been changed. on_data() will be called right after the following line.
         if self.ser.inWaiting() > 0:
-            self.data = self.__readFromSerial()
+            self.tmp= self.__readFromSerial()
             #  logging.info(len(self.data))
 
     def on_data(self,instance,data):
@@ -319,7 +326,7 @@ class BCIApp(App):
             #  self.__configure_easybci_thread()
 
             # enable real time time-domain or/and frequency-domain plotting
-            Clock.schedule_interval(self._read,1/self.fps)
+            Clock.schedule_interval(self._read_thread,1/self.fps)
             #self.root.ids['RealTimePlotting'].start()
             #self.root.ids['FFT'].start()
 
@@ -331,7 +338,7 @@ class BCIApp(App):
     def disconnect(self):
         try:
             # Stop event
-            Clock.unschedule(self._read)
+            Clock.unschedule(self._read_thread)
 
             # Close connection
             self.ser.close()
@@ -393,11 +400,11 @@ class BCIApp(App):
         except OSError:
             # serial device unplugged
             # Stop event
-            Clock.unschedule(self._read)
+            Clock.unschedule(self._read_thread)
 
             # Clear Figures
-            self.root.ids['RealTimePlotting'].clear()
-            self.root.ids['FFT'].clear()
+            self.root.current_screen.ids['RealTimePlotting'].clear()
+            self.root.current_screen.ids['FFT'].clear()
 
         # Get data remaining in the last run
         rawRemained = self.rawRemained
