@@ -88,8 +88,11 @@ class FFT(BoxLayout):
     length = 128 # FFT length
     fs = 125 # FFT Sampling rate
     ts = 1.0/fs # Sampling interval
-    fftLen = 512
+    fftLen = length
     plotScale = 1 # (integer) After FFT there are much points as fftLen/2 to plot. Considerable to reduce the points.
+    autoScale = True
+    xscale = fs/4
+    xcenter = fs/2
 
     def __init__(self,**kwargs):
         super(FFT,self).__init__(**kwargs)
@@ -99,8 +102,10 @@ class FFT(BoxLayout):
         #plt.ion() #Never turn this on. Or enjoy a almost frozen Application.
 
         # Settings
-        self.ax.set_xlabel('Frequency(Hz)')
-        self.ax.set_ylabel('Amplitude(uV)')
+        self.ax.xaxis.set_label_coords(0.9, -0.01)
+        self.ax.yaxis.set_label_coords(-0.00, 1.05)
+        self.ax.set_xlabel('Freq(Hz)')
+        self.ax.set_ylabel('Amplitude(uV)',rotation=0)
         self.ax.set_title('FFT')
 
         # x-axis, ts = 1/fs
@@ -110,10 +115,11 @@ class FFT(BoxLayout):
         fPlot = [fPos[i]  for i in range(len(fPos)) if np.mod(i,self.plotScale) == 0 ]
         self.plotLen = len(fPlot)
 
-        # Plot x data once. Then we only need to update y data
-        padding = (np.max(fPlot) - np.min(fPlot)) * 0.02
+        # Set X padding
+        padding = (np.max(fPlot) - np.min(fPlot)) * 0.01
         self.ax.set_xlim([np.min(fPlot)-padding,np.max(fPlot)+padding])
         self.FFTplot, = self.ax.plot(fPlot,np.zeros_like(fPlot))
+        #  self.fig.canvas.mpl_connect('scroll_event', self.figure_scroll)
 
         self.add_widget(self.fig.canvas)
 
@@ -127,10 +133,58 @@ class FFT(BoxLayout):
 #        self.ax.set_ylim([-1,1])
 #        plt.draw()
 
+    def figure_scroll(self,event):
+        print('scroll event from mpl ', event.x, event.y, event.step, event.button)
+
     def clear(self, dt=0):
         self.FFTplot.set_ydata(np.zeros(self.plotLen).tolist())
         self.ax.set_ylim([-1,1])
         plt.draw_all()
+
+    def set_fft_length(self, FixedFFTLen=False):
+        self.length = int(self.ids['fftLen'].text)
+        if not FixedFFTLen:
+            self.fftLen = self.length
+            self.f = np.fft.fftfreq(self.fftLen,self.ts)
+
+            fPos = self.f[self.f>=0]
+            fPlot = [fPos[i]  for i in range(len(fPos)) if np.mod(i,self.plotScale) == 0 ]
+            self.plotLen = len(fPlot)
+            self.FFTplot.set_data(fPlot,np.zeros_like(fPlot))
+
+    def set_scale(self):
+        self.scale = self.ids['scale'].text
+        if self.ids['scale'].text == 'Auto':
+            self.autoScale = True
+        else:
+            self.autoScale = False
+            if self.scale == '10μV':
+                self.ax.set_ylim([0,10])
+            elif self.scale == '100μV':
+                self.ax.set_ylim([0,100])
+            elif self.scale == '1mV':
+                self.ax.set_ylim([0,1000])
+            elif self.scale == '10mV':
+                self.ax.set_ylim([0,10000])
+            elif self.scale == '100mV':
+                self.ax.set_ylim([0,1e5])
+            elif self.scale == '1000mV':
+                self.ax.set_ylim([0,1e6])
+
+    def set_horizontal_width(self):
+        self.xcenter = self.ids['horizon'].value
+        self.ax.set_xlim([self.xcenter - self.xscale , self.xcenter + self.xscale])
+
+    def set_xscale(self):
+        self.xscale = self.fs/4 / self.ids['xscale'].value
+        xmin = self.xscale
+        xmax =  self.fs/2 - self.xscale
+        self.ids['horizon'].range = (xmin,xmax)
+        if self.xcenter - self.xscale < 0:
+            self.ids['horizon'].value = xmin
+        elif self.xcenter + self.xscale > self.fs/2:
+            self.ids['horizon'].value = xmax
+        self.ax.set_xlim([self.xcenter - self.xscale , self.xcenter + self.xscale])
 
     def refresh(self):
         data = App.get_running_app().data
@@ -142,44 +196,43 @@ class FFT(BoxLayout):
 
         # Get data
         y = data[-self.length:]
-
-        # Perform 512 point FFT to improve resolution
         Y = np.fft.fft(y,self.fftLen)
-
-        # deal with amplitude scale and choose the positive half
-        #Yamp = np.abs(Y/self.fftLen)
-        #YampHalf = Yamp[f>=0]
         YampPos = np.abs(Y[self.f>=0]/self.fftLen)
         YampPos[1:-1] = YampPos[1:-1] * 2
-
         YPlot = [YampPos[i]  for i in range(len(YampPos)) if np.mod(i,self.plotScale)==0 ]
 
         self.FFTplot.set_ydata(YPlot)
-        padding = (np.max(YPlot) - np.min(YPlot)) * 0.1
-        # TODO To improve figure ylimits stability
-        if padding > 0.1:
-            self.ax.set_ylim([np.min(YPlot)-padding,np.max(YPlot)+padding])
+
+        if self.autoScale:
+            # Set y padding
+            padding = (np.max(YPlot) - np.min(YPlot)) * 0.1
+            # TODO To improve figure ylimits stability
+            if padding > 0.1:
+                self.ax.set_ylim([np.min(YPlot)-padding,np.max(YPlot)+padding])
         plt.draw_all()
         #self.ax.plot(fPlot,YPlot)
 
 class RealTimePlotting(BoxLayout):
 
     fs = 125
-    length = 125 * 4
+    scale = 'Auto'
     #  band = np.array([49,51])
     """Real Time time-domain Plotting """
 
     def __init__(self,**kwargs):
         super(RealTimePlotting ,self).__init__(**kwargs)
 
+        self.length = self.fs * 4
         # Configure real time fft figure with matplotlib
         self.fig, self.ax = plt.subplots()
         #plt.ion() #Never turn this on. Or enjoy a almost frozen Application.
 
         # Settings
-        #self.ax.set_xlabel('Time(seconds)')
-        self.ax.set_ylabel('Amplitude(uV)')
-        self.ax.get_xaxis().set_visible(False)
+        self.ax.set_xlabel('Time(seconds)')
+        self.ax.xaxis.set_label_coords(0.8, -0.01)
+        self.ax.yaxis.set_label_coords(-0.00, 1.05)
+        self.ax.set_ylabel('Amplitude(uV)',rotation=0)
+        self.ax.get_xaxis().set_visible(True)
         #self.ax.set_title('Real Time Plotting')
 
         # Plot x data once. Then we only need to update y data
@@ -208,20 +261,46 @@ class RealTimePlotting(BoxLayout):
 
     def refresh(self):
         # TODO Now real time plotting and FFT cannot be showed on the same time
-        data = App.get_running_app().data[-self.length:]
+        y = App.get_running_app().data[-self.length:]
 
-        if data is None:
-            data=[]
-            logging.info("Nothong from serial. Please check UART connection.")
         #  b,a = signal.butter(4,2 * np.pi * self.band/self.fs,'bandstop')
         #  y_filtered = signal.lfilter(b,a,y)
-        y = data
         self.RealTimePlot.set_ydata(y)
-        padding = (np.max(y) - np.min(y)) * 0.1
-        # TODO To improve figure ylimits stability
-        if padding > 0.1:
-            self.ax.set_ylim([np.min(y)-padding,np.max(y)+padding])
+        if self.scale == 'Auto':
+            padding = (np.max(y) - np.min(y)) * 0.1
+            # TODO To improve figure ylimits stability
+            if padding > 0.1:
+                self.ax.set_ylim([np.min(y)-padding,np.max(y)+padding])
+
         plt.draw_all()
+
+    def set_filter(self):
+        pass
+
+    def set_notch(self):
+        if self.ids['notch'].text == '50Hz':
+            pass
+        elif self.ids['notch'].text == '60Hz':
+            pass
+
+    def set_length(self):
+        if self.ids['length'].text == '0.5s':
+            self.length = int(self.fs * 0.5)
+        elif self.ids['length'].text == '1s':
+            self.length = self.fs * 1
+        elif self.ids['length'].text == '2s':
+            self.length = self.fs * 2
+        elif self.ids['length'].text == '3s':
+            self.length = self.fs * 3
+        elif self.ids['length'].text == '4s':
+            self.length = self.fs * 4
+
+        x = np.arange(0,self.length)/self.fs
+        y = App.get_running_app().data[-self.length:]
+        self.ax.set_xlim([np.min(x),np.max(x)])
+        self.RealTimePlot.set_data(x,y)
+        plt.draw_all()
+
 
 class Test(Screen):
     """Test Layout"""
@@ -251,7 +330,7 @@ class Test(Screen):
 class BCIApp(App):
     # Settings
     kv_directory = 'ui_template'
-    fps = 15
+    fps = 10
     storedLen = 1024
     data = ListProperty()
     # Buffer
@@ -321,6 +400,7 @@ class BCIApp(App):
             # serial part
             # TODO serial should be opened after face recognition finished
             self.ser = serial.Serial(port = port,baudrate = baudrate, bytesize=8,parity='N',stopbits=1, write_timeout=0)
+            self.data = np.zeros(self.storedLen).tolist()
             #  self.__configure_easybci_thread()
 
             # enable real time time-domain or/and frequency-domain plotting
@@ -362,6 +442,7 @@ class BCIApp(App):
         raw = raw[raw!=None]
         # 2.42 is the referrence voltage of BCI device, 23 is the sampling resolution
         dataVol = 4.033 / 2**23 / gainCoefficient * raw /2**8
+        #  dataVol = 2.42 / 2**23 / gainCoefficient * raw
         dataVol = dataVol * 1e6 # convert uints to uV
         return tuple(dataVol)
 

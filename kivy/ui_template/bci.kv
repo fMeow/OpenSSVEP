@@ -7,24 +7,52 @@
 
 <FFT>:
 	orientation: 'vertical'
-	spacing:'5dp'
+	spacing:'2dp'
+
 	BoxLayout:
-		#padding:'5dp'
-		spacing:'20dp'
+		size_hint:(1,0.05)
+		spacing:'2dp'
+		Label:
+			size_hint:(0.3,1)
+			text:"Scale"
+		Label:
+			size_hint:(0.3,1)
+			text:"Horizon"
+		Label:
+			size_hint:(0.2,1)
+			text:"FFT Len"
+		Label:
+			size_hint:(0.2,1)
+			text:"Scale"
+	BoxLayout:
+		spacing:'2dp'
 		size_hint:(1,0.1)
-#		ToggleButton:
-#			text:'256'
-#			group:'FFT'
-#			state:'down'
-#		ToggleButton:
-#			text:'512'
-#			group:'FFT'
-#		ToggleButton:
-#			text:'1024'
-#			group:'FFT'
+		Slider:
+			size_hint:(0.3,1)
+			id:xscale
+			range:(1,self.parent.parent.fs/4)
+			value:1
+			on_value:self.parent.parent.set_xscale()
+		Slider:
+			size_hint:(0.3,1)
+			id:horizon
+			range:(self.parent.parent.fs/4,self.parent.parent.fs/4)
+			value:self.parent.parent.fs/4
+			on_value:self.parent.parent.set_horizontal_width()
+		Spinner:
+			id:fftLen
+			size_hint:(0.2,1)
+			text:'128'
+			values:('32', '64', '128', '256','512','1024')
+			on_text: self.parent.parent.set_fft_length()
+		Spinner:
+			id:scale
+			size_hint:(0.2,1)
+			text:'Auto'
+			values:('Auto', '10μV', '100μV', '1mV','10mV','100mV','1000mV')
+			on_text:self.parent.parent.set_scale()
 
 <SerialPortSelection>:
-	padding:'10dp'
 	spacing:'10dp'
 	orientation:'horizontal'
 	Spinner:
@@ -33,19 +61,53 @@
 		#values:()
 		size_hint:(0.7,1)
 
+	Button:
+		size_hint:(0.2,1)
+		text:'Refresh'
+		on_press: self.parent.scanPorts(0)
+
 	ToggleButton:
 		id:connect
 		size_hint:(0.2,1)
 		text:'Connect'
 		on_state: self.parent.changeState(self.state)
 
-	Button:
-		size_hint:(0.2,1)
-		text:'Refresh'
-		on_press: self.parent.scanPorts(0)
-
 <RealTimePlotting>:
 	orientation:'vertical'
+	spacing:'2dp'
+	BoxLayout:
+		size_hint:(1,0.05)
+		spacing:"5dp"
+		Label:
+			text:"Filter"
+			size_hint:(0.2,1)
+		Label:
+			text:"Notch"
+			size_hint:(0.2,1)
+		Label:
+			text:"Length"
+			size_hint:(0.2,1)
+	BoxLayout:
+		spacing:"5dp"
+		size_hint:(1,0.1)
+		Spinner:
+			id:filters
+			size_hint:(0.2,1)
+			text:'None'
+			values:('None',)
+			on_text: self.parent.parent.set_filter()
+		Spinner:
+			id:notch
+			size_hint:(0.2,1)
+			text:'50Hz'
+			values:('50Hz', '60Hz')
+			on_text: self.parent.parent.set_notch()
+		Spinner:
+			id:length
+			size_hint:(0.2,1)
+			text:'4s'
+			values:('0.5s','1s', '2s', '3s', '4s')
+			on_text: self.parent.parent.set_length()
 
 <Test>:
     orientation: 'vertical'
