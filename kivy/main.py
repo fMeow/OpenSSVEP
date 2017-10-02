@@ -326,6 +326,55 @@ class Test(Screen):
             self.ids[widgetID].state = 'normal'
             self.ids[widgetID].trigger_action(0.01)
 
+class Blink(Screen):
+    # Settings
+    theme_cls = ThemeManager()
+
+    def __init__(self, **kwargs):
+        """ Initializing serial and plot
+        :returns: TODO
+        """
+        super(Blink,self).__init__(**kwargs)
+        ''' BLINKING
+        '''
+        for i in range(12):
+            Clock.schedule_interval(partial(self.blinking,i),1/(0+12))
+
+    def blinking(self,idx,dt):
+        widgetID = 'button%d' % idx
+        if self.ids[widgetID].state == 'normal':
+            self.ids[widgetID].state = 'down'
+            self.ids[widgetID].trigger_action(0.01)
+        if self.ids[widgetID].state == 'down':
+            self.ids[widgetID].state = 'normal'
+            self.ids[widgetID].trigger_action(0.01)
+
+    def set_freq(self):
+        """
+        set screen blinking frequency
+
+        """
+        freq = self.ids['freq'].value
+        self.ids['freqLabel'].text = "%dHz" % self.ids['freq'].value
+        for i in range(12):
+            Clock.unschedule(partial(self.blinking,i))
+            Clock.schedule_interval(partial(self.blinking,i),1/(freq*2))
+
+    def toggleBlink(self):
+        pass
+
+class BlinkApp(App):
+    kv_directory = 'ui_template'
+
+    def __init__(self,**kwargs):
+        """ Initializing serial
+        :returns: TODO
+        """
+        super(BlinkApp,self).__init__(**kwargs)
+    def build(self):
+        root = ScreenManager()
+        root.add_widget(Blink(name='bci'))
+        return root
 
 class BCIApp(App):
     # Settings
@@ -547,6 +596,7 @@ if __name__ == '__main__':
     #  logging.basicConfig(level=logging.INFO,
                 #  format='%(asctime)s %(filename)s[line:%(lineno)d] %(levelname)s %(message)s',
                 #  datefmt='%H:%M:%S')
+    #  BlinkApp().run()
     try:
         BCIApp().run()
     except KeyboardInterrupt:

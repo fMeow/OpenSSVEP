@@ -1,9 +1,5 @@
 #:import Label kivymd.label.Label
 
-<FlashButton@Button>
-	background_color: (0,0,0,1) if self.state == 'normal' else (1,1,1,1)
-	background_normal: 'disable.png'
-	background_down: 'disable.png'
 
 <FFT>:
 	orientation: 'vertical'
@@ -32,6 +28,7 @@
 			id:xscale
 			range:(1,self.parent.parent.fs/4)
 			value:1
+			step:1
 			on_value:self.parent.parent.set_xscale()
 		Slider:
 			size_hint:(0.3,1)
@@ -39,6 +36,7 @@
 			range:(self.parent.parent.fs/4,self.parent.parent.fs/4)
 			value:self.parent.parent.fs/4
 			on_value:self.parent.parent.set_horizontal_width()
+			step:1
 		Spinner:
 			id:fftLen
 			size_hint:(0.2,1)
@@ -139,64 +137,3 @@
 				size_hint:(1,0.2)
 				#sync_height: True
 
-		BoxLayout:
-			orientation: 'vertical'
-			padding:'10dp'
-			spacing:'10dp'
-
-			CodeInput:
-				size_hint:(1,0.3)
-				text:'Please input your password'
-
-			GridLayout:
-				padding:'10dp'
-				spacing:'10dp'
-				cols:3
-
-				FlashButton:
-					id:button1
-					text:'1'
-
-				FlashButton:
-					id:button2
-					text:'2'
-
-				FlashButton:
-					id:button3
-					text:'3'
-
-				FlashButton:
-					id:button4
-					text:'4'
-
-				FlashButton:
-					id:button5
-					text:'5'
-
-				FlashButton:
-					id:button6
-					text:'6'
-
-				FlashButton:
-					id:button7
-					text:'7'
-
-				FlashButton:
-					id:button8
-					text:'8'
-
-				FlashButton:
-					id:button9
-					text:'9'
-
-				FlashButton:
-					id:button10
-					text:'Confirm'
-
-				FlashButton:
-					id:button0
-					text:'0'
-
-				FlashButton:
-					id:button11
-					text:'Cancel'
