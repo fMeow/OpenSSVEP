@@ -479,8 +479,7 @@ class BCIApp(App):
             # self.ser is None. We have not connect to any available serial device
             pass
 
-
-    def __rawData2Voltage(self, rawData,gainCoefficient=12):
+    def __rawData2Voltage(self, rawData,protocol,gainCoefficient=12):
         """ convert rawData to exact voltage
 
         :rawData: a list of rawData
@@ -489,9 +488,11 @@ class BCIApp(App):
         """
         raw = np.array(rawData)
         raw = raw[raw!=None]
-        # 2.42 is the referrence voltage of BCI device, 23 is the sampling resolution
-        dataVol = 4.033 / 2**23 / gainCoefficient * raw /2**8
-        #  dataVol = 2.42 / 2**23 / gainCoefficient * raw
+        if protocol == 'EasyBCISingleChannel':
+            #  2.42 is the referrence voltage of BCI device, 23 is the sampling resolution
+            dataVol = 2.42 / 2**23 / gainCoefficient * raw
+        elif protocol == 'BCISingleChannel':
+            dataVol = 4.033 / 2**23 / gainCoefficient * raw /2**8
         dataVol = dataVol * 1e6 # convert uints to uV
         return tuple(dataVol)
 
@@ -508,9 +509,9 @@ class BCIApp(App):
         except Exception:
             pass
 
-    def __readFromSerial(self,protocol='EasyBCISingleChannel'):
+    def __readFromSerial(self,protocol='BCISingleChannel'):
         """TODO: Docstring for readFromSerial.
-        :protocol:protocol type. Should be 'EasyBCISingleChannel'.
+        :protocol:protocol type. Should be 'EasyBCISingleChannel' or 'BCISingleChannel'.
         :ser: Serial Object
         :returns: a list of raw data from BCI
         """
@@ -541,7 +542,7 @@ class BCIApp(App):
         dataList= []
 
         # Manipulate raw data with given protocol
-        if protocol == 'EasyBCISingleChannel':
+        if protocol == 'EasyBCISingleChannel' or protocol == 'BCISingleChannel':
             start = b'\xaa'
             middle = b'\xa1'
             lastIndex = 0
@@ -586,7 +587,7 @@ class BCIApp(App):
                         logging.warning('CheckCode: %s Fail with CheckCode %s%s%s' %(rawDataPack.hex(), Fore.RED, hex(checkCode)[2:], Style.RESET_ALL ) )
             # Update remaining raw data
             self.rawRemained = raw[lastIndex:]
-            return self.__rawData2Voltage(dataList)
+            return self.__rawData2Voltage(dataList, protocol = protocol)
 
         else:
             # Exclude the last and incomplete data
