@@ -23,6 +23,7 @@ from functools import partial
 
 from colorama import Fore, Back, Style, init
 import logging
+import time
 from ipdb import set_trace
 
 # Kivy Material Design
@@ -31,9 +32,15 @@ from kivymd.theming import ThemeManager
 __author__ = 'Guoli Lv'
 __email__ = 'guoli-lv@hotmail.com'
 
+class CountDown(BoxLayout):
+    pass
+
+
 class SerialPortSelection(BoxLayout):
 
     """ Select Serial Port on GUI """
+    unlimited = True
+    folder = 'data'
 
     def __init__(self,**kwargs):
         super(SerialPortSelection,self).__init__(**kwargs)
@@ -51,6 +58,16 @@ class SerialPortSelection(BoxLayout):
     def changeState(self,state):
         if state == 'down':
             con = App.get_running_app().connect(self.ids['uart'].text)
+            if self.ids['duration'].text != 'Unlimited':
+                self.unlimited = False
+                self.countDown = CountDown()
+                self.parent.add_widget(self.countDown)
+                self.duration = int(self.ids['duration'].text[:-1])
+                self.remained = int(self.ids['duration'].text[:-1])
+                self.countDown.ids['remaingTime'].text = self.ids['duration'].text
+                self.countDown.ids['progress'].value = 0
+                App.get_running_app().save = True
+                Clock.schedule_interval(self.tick,1/10)
             # When connection failed
             if con is False:
                 self.ids['connect'].state = 'normal'
@@ -60,6 +77,19 @@ class SerialPortSelection(BoxLayout):
                 self.scanPorts()
         else:
             data = App.get_running_app().disconnect()
+            if not self.unlimited:
+                Clock.unschedule(self.tick)
+                self.parent.remove_widget(self.countDown)
+                App.get_running_app().save = False
+                filename = time.strftime("%Y-%m-%d-%H:%M:%S", time.gmtime())
+                np.savetxt('BCI_%s.dat'%(self.folder,filename),App.get_running_app().toSave)
+
+    def tick(self,dt):
+        self.remained -= dt
+        self.countDown.ids['remaingTime'].text = '%d s' % self.remained
+        self.countDown.ids['progress'].value =  (1 - self.remained/self.duration) * 100
+        if self.remained <= 0:
+            self.ids['connect'].state = 'normal'
 
     def scanPorts(self,dt=0):
         # scan ports
@@ -386,6 +416,8 @@ class BCIApp(App):
     rawRemained = b'' # raw Data from serial, this should contain the data unused last time
     ser = None
     tmp = list()
+    save = False
+    toSave = list()
 
 
     def __init__(self,**kwargs):
@@ -408,9 +440,14 @@ class BCIApp(App):
 
         l = len(self.tmp)
         if l > 0:
+            # FIFO
             tmp = self.data[l:]
             tmp.extend(list(self.tmp))
             self.data = tmp
+
+            if self.save:
+                self.toSave.extend(list(self.tmp))
+
             #  logging.info("len:%d"%len(self.tmp))
         #  logging.info("len:%d"%len(self.data))
 
