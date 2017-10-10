@@ -40,7 +40,7 @@ class SerialPortSelection(BoxLayout):
 
     """ Select Serial Port on GUI """
     unlimited = True
-    folder = 'data'
+    save_directory = 'data'
 
     def __init__(self,**kwargs):
         super(SerialPortSelection,self).__init__(**kwargs)
@@ -81,8 +81,8 @@ class SerialPortSelection(BoxLayout):
                 Clock.unschedule(self.tick)
                 self.parent.remove_widget(self.countDown)
                 App.get_running_app().save = False
-                filename = time.strftime("%Y-%m-%d-%H:%M:%S", time.gmtime())
-                np.savetxt('BCI_%s.dat'%(self.folder,filename),App.get_running_app().toSave)
+                filename = time.strftime("%Y-%m-%d_%H-%M-%S", time.localtime())
+                np.savetxt('./%s/BCI-%s.txt'%(self.save_directory, filename),App.get_running_app().toSave)
 
     def tick(self,dt):
         self.remained -= dt
@@ -365,19 +365,18 @@ class Blink(Screen):
         :returns: TODO
         """
         super(Blink,self).__init__(**kwargs)
-        ''' BLINKING
-        '''
-        for i in range(12):
-            Clock.schedule_interval(partial(self.blinking,i),1/(0+12))
+        #  ''' BLINKING
+        #  '''
+        #  for i in range(12):
+            #  hz = 6 # i + 4
+            #  Clock.schedule_interval(partial(self.blinking,i),1/(2*hz))
 
-    def blinking(self,idx,dt):
-        widgetID = 'button%d' % idx
-        if self.ids[widgetID].state == 'normal':
-            self.ids[widgetID].state = 'down'
-            self.ids[widgetID].trigger_action(0.01)
-        if self.ids[widgetID].state == 'down':
-            self.ids[widgetID].state = 'normal'
-            self.ids[widgetID].trigger_action(0.01)
+    #  def blinking(self,idx,dt):
+        #  widgetID = 'button%d' % idx
+        #  if self.ids[widgetID].state == 'normal':
+            #  self.ids[widgetID].state = 'down'
+        #  elif self.ids[widgetID].state == 'down':
+            #  self.ids[widgetID].state = 'normal'
 
     def set_freq(self):
         """
