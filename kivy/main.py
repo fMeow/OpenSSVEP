@@ -83,6 +83,7 @@ class SerialPortSelection(BoxLayout):
                 App.get_running_app().save = False
                 filename = time.strftime("%Y-%m-%d_%H-%M-%S", time.localtime())
                 np.savetxt('./%s/BCI-%s.txt'%(self.save_directory, filename),App.get_running_app().toSave)
+                App.get_running_app().toSave = list()
 
     def tick(self,dt):
         self.remained -= dt
@@ -274,6 +275,11 @@ class RealTimePlotting(BoxLayout):
 
         self.add_widget(self.fig.canvas)
 
+        #  self.b,self.a = signal.butter(4,[4 /(self.fs/2),30 /(self.fs/2)],'band')
+        self.b,self.a = signal.butter(4,[49 /(self.fs/2),51 /(self.fs/2)],'bandstop')
+        self.xbuf= [0 for i in range(len(self.b)-1)]
+        self.ybuf= [0 for i in range(len(self.a)-1)]
+
 #    def start(self):
 #        Clock.unschedule(self.refresh)
 #        Clock.schedule_interval(self.refresh,1/self.fps)
@@ -291,21 +297,42 @@ class RealTimePlotting(BoxLayout):
 
     def refresh(self):
         # TODO Now real time plotting and FFT cannot be showed on the same time
-        y = App.get_running_app().data[-self.length:]
+        y_raw = App.get_running_app().data[-self.length:]
 
-        #  b,a = signal.butter(4,2 * np.pi * self.band/self.fs,'bandstop')
-        #  y_filtered = signal.lfilter(b,a,y)
+        # Frequency Domain filter
+        b,a = signal.butter(4,[49 /(self.fs/2),51 /(self.fs/2)],'bandstop')
+        y = signal.filtfilt(b,a,y_raw)
+
+        # Time Domain filter
+        #  y = list()
+        #  for i in y_raw:
+            #  y += [self.filt(i)]
+
         self.RealTimePlot.set_ydata(y)
         if self.scale == 'Auto':
-            padding = (np.max(y) - np.min(y)) * 0.1
-            # TODO To improve figure ylimits stability
-            if padding > 0.1:
-                self.ax.set_ylim([np.min(y)-padding,np.max(y)+padding])
+            ymin,ymax = self.ax.get_ylim()
+            padding = ( np.max(y) - np.min(y) )*0.1
+            if np.min(y) < ymin or np.max(y) > ymax or padding < (ymax - ymin) *0.1 * 0.1 :
+                padding = (np.max(y) - np.min(y)) * 0.1
+                # TODO To improve figure ylimits stability
+                self.ax.set_ylim([np.min(y)-padding, np.max(y)+padding])
 
         plt.draw_all()
 
     def set_filter(self):
         pass
+
+    def filt(self,new):
+        self.xbuf += [new]
+
+        y = sum(self.b * self.xbuf[::-1]) - sum(self.a[1:] * self.ybuf[::-1])
+
+        self.xbuf= self.xbuf[1:]
+
+        self.ybuf += [y]
+        self.ybuf = self.ybuf[1:]
+
+        return y
 
     def set_notch(self):
         if self.ids['notch'].text == '50Hz':
