@@ -117,16 +117,17 @@ class FFT(BoxLayout):
     """ Real Time frequency-domain Plotting """
 
     length = 128 # FFT length
-    fs = 125 # FFT Sampling rate
-    ts = 1.0/fs # Sampling interval
+    #  fs = 125 # FFT Sampling rate
     fftLen = length
     plotScale = 1 # (integer) After FFT there are much points as fftLen/2 to plot. Considerable to reduce the points.
     autoScale = True
-    xscale = fs/4
-    xcenter = fs/2
 
     def __init__(self,**kwargs):
         super(FFT,self).__init__(**kwargs)
+        self.fs = App.get_running_app().fs
+        self.ts = 1.0/self.fs # Sampling interval
+        self.xscale = self.fs/4
+        self.xcenter = self.fs/2
 
         # Configure real time fft figure with matplotlib
         self.fig, self.ax = plt.subplots()
@@ -137,6 +138,7 @@ class FFT(BoxLayout):
         self.ax.yaxis.set_label_coords(-0.00, 1.05)
         self.ax.set_xlabel('Freq(Hz)')
         self.ax.set_ylabel('Amplitude(uV)',rotation=0)
+        #  self.ax.set_title('PSD')
         self.ax.set_title('FFT')
 
         # x-axis, ts = 1/fs
@@ -168,7 +170,8 @@ class FFT(BoxLayout):
         print('scroll event from mpl ', event.x, event.y, event.step, event.button)
 
     def clear(self, dt=0):
-        self.FFTplot.set_ydata(np.zeros(self.plotLen).tolist())
+        y = self.FFTplot.get_ydata()
+        self.FFTplot.set_ydata(np.zeros(len(y)))
         self.ax.set_ylim([-1,1])
         plt.draw_all()
 
@@ -218,7 +221,8 @@ class FFT(BoxLayout):
         self.ax.set_xlim([self.xcenter - self.xscale , self.xcenter + self.xscale])
 
     def refresh(self):
-        data = App.get_running_app().data
+        data = App.get_running_app().filteredData
+
         if len(data) < self.length:
             return False
         #  logging.info("Refreshing. Length of data:%d"%(len(data)))
@@ -227,12 +231,21 @@ class FFT(BoxLayout):
 
         # Get data
         y = data[-self.length:]
+
+        # PSD
+        #  x,YPlot = signal.periodogram(y,fs=self.fs,nfft=None,window='hamming')
+        #  YPlot = 10 * np.log(YPlot)
+        #  x = x[1:]
+        #  YPlot = YPlot[1:]
+        #  self.FFTplot.set_data(x,YPlot)
+
+        # FFT
         Y = np.fft.fft(y,self.fftLen)
         YampPos = np.abs(Y[self.f>=0]/self.fftLen)
         YampPos[1:-1] = YampPos[1:-1] * 2
         YPlot = [YampPos[i]  for i in range(len(YampPos)) if np.mod(i,self.plotScale)==0 ]
-
         self.FFTplot.set_ydata(YPlot)
+
 
         if self.autoScale:
             # Set y padding
@@ -245,13 +258,13 @@ class FFT(BoxLayout):
 
 class RealTimePlotting(BoxLayout):
 
-    fs = 125
     scale = 'Auto'
     #  band = np.array([49,51])
     """Real Time time-domain Plotting """
 
     def __init__(self,**kwargs):
         super(RealTimePlotting ,self).__init__(**kwargs)
+        self.fs = App.get_running_app().fs
 
         self.length = self.fs * 4
         # Configure real time fft figure with matplotlib
@@ -275,10 +288,6 @@ class RealTimePlotting(BoxLayout):
 
         self.add_widget(self.fig.canvas)
 
-        #  self.b,self.a = signal.butter(4,[4 /(self.fs/2),30 /(self.fs/2)],'band')
-        self.b,self.a = signal.butter(4,[49 /(self.fs/2),51 /(self.fs/2)],'bandstop')
-        self.xbuf= [0 for i in range(len(self.b)-1)]
-        self.ybuf= [0 for i in range(len(self.a)-1)]
 
 #    def start(self):
 #        Clock.unschedule(self.refresh)
@@ -297,22 +306,20 @@ class RealTimePlotting(BoxLayout):
 
     def refresh(self):
         # TODO Now real time plotting and FFT cannot be showed on the same time
-        y_raw = App.get_running_app().data[-self.length:]
+        #  y_raw = App.get_running_app().data[-self.length:]
+        y_raw = App.get_running_app().filteredData[-self.length:]
 
+        y = y_raw
         # Frequency Domain filter
-        b,a = signal.butter(4,[49 /(self.fs/2),51 /(self.fs/2)],'bandstop')
-        y = signal.filtfilt(b,a,y_raw)
+        #  b,a = signal.butter(4,[5 /(self.fs/2),45 /(self.fs/2)],'band')
+        #  y = signal.filtfilt(b,a,y_raw)
 
-        # Time Domain filter
-        #  y = list()
-        #  for i in y_raw:
-            #  y += [self.filt(i)]
 
         self.RealTimePlot.set_ydata(y)
         if self.scale == 'Auto':
             ymin,ymax = self.ax.get_ylim()
             padding = ( np.max(y) - np.min(y) )*0.1
-            if np.min(y) < ymin or np.max(y) > ymax or padding < (ymax - ymin) *0.1 * 0.1 :
+            if np.min(y) < ymin or np.max(y) > ymax or padding < (ymax - ymin) *0.1  :
                 padding = (np.max(y) - np.min(y)) * 0.1
                 # TODO To improve figure ylimits stability
                 self.ax.set_ylim([np.min(y)-padding, np.max(y)+padding])
@@ -320,25 +327,25 @@ class RealTimePlotting(BoxLayout):
         plt.draw_all()
 
     def set_filter(self):
-        pass
+        if self.ids['filters'].text == 'None':
+            fs = App.get_running_app().fs
+            App.get_running_app().refresh_filter(0,fs/2)
+        elif self.ids['filters'].text == 'Highpass:4Hz':
+            fs = App.get_running_app().fs
+            App.get_running_app().refresh_filter(4,fs/2)
+        elif self.ids['filters'].text == '4Hz-60Hz':
+            App.get_running_app().refresh_filter(4,60)
+        elif self.ids['filters'].text == '4Hz-45Hz':
+            App.get_running_app().refresh_filter(4,45)
 
-    def filt(self,new):
-        self.xbuf += [new]
-
-        y = sum(self.b * self.xbuf[::-1]) - sum(self.a[1:] * self.ybuf[::-1])
-
-        self.xbuf= self.xbuf[1:]
-
-        self.ybuf += [y]
-        self.ybuf = self.ybuf[1:]
-
-        return y
 
     def set_notch(self):
-        if self.ids['notch'].text == '50Hz':
-            pass
+        if self.ids['notch'].text == 'None':
+            App.get_running_app().refresh_notch_filter(50,False)
+        elif self.ids['notch'].text == '50Hz':
+            App.get_running_app().refresh_notch_filter(50)
         elif self.ids['notch'].text == '60Hz':
-            pass
+            App.get_running_app().refresh_notch_filter(60)
 
     def set_length(self):
         if self.ids['length'].text == '0.5s':
@@ -436,6 +443,7 @@ class BCIApp(App):
     # Settings
     kv_directory = 'ui_template'
     fps = 10
+    fs = 125
     storedLen = 1024
     data = ListProperty()
     # Buffer
@@ -444,6 +452,8 @@ class BCIApp(App):
     tmp = list()
     save = False
     toSave = list()
+    filteredDataNotch = list()
+    filteredData = list()
 
 
     def __init__(self,**kwargs):
@@ -452,7 +462,27 @@ class BCIApp(App):
         """
         init(autoreset=True)
         self.data = np.zeros(self.storedLen).tolist()
+        self.filteredData = np.zeros(self.storedLen).tolist()
+        self.filteredDataNotch = np.zeros(self.storedLen).tolist()
+        self.refresh_notch_filter(50,True)
+        self.refresh_filter(0,62.5)
+        #  self.b,self.a = signal.butter(4,[4 /(self.fs/2),30 /(self.fs/2)],'band')
         super(BCIApp,self).__init__(**kwargs)
+
+    def refresh_notch_filter(self,f=50,enable=True):
+        fmin = f-0.5
+        fmax = f+0.5
+        if enable:
+            self.bNotch,self.aNotch = signal.butter(4,[fmin /(self.fs/2),fmax /(self.fs/2)],'bandstop')
+        else:
+            self.bNotch,self.aNotch = signal.butter(4,1,'lowpass')
+        self.xbufNotch= [0 for i in range(len(self.bNotch)-1)]
+        self.ybufNotch= [0 for i in range(len(self.aNotch)-1)]
+
+    def refresh_filter(self,fmin,fmax):
+        self.b,self.a = signal.butter(4,[fmin /(self.fs/2),fmax /(self.fs/2)],'band')
+        self.xbuf= [0 for i in range(len(self.b)-1)]
+        self.ybuf= [0 for i in range(len(self.a)-1)]
 
 
     def build(self):
@@ -471,17 +501,51 @@ class BCIApp(App):
             tmp.extend(list(self.tmp))
             self.data = tmp
 
-            if self.save:
-                self.toSave.extend(list(self.tmp))
 
             #  logging.info("len:%d"%len(self.tmp))
         #  logging.info("len:%d"%len(self.data))
+
+    def filt_notch(self,new):
+        self.xbufNotch += [new]
+        y = sum(self.bNotch * self.xbufNotch[::-1]) - sum(self.aNotch[1:] * self.ybufNotch[::-1])
+        self.xbufNotch= self.xbufNotch[1:]
+        self.ybufNotch += [y]
+        self.ybufNotch = self.ybufNotch[1:]
+        return y
+
+    def filt(self,new):
+        self.xbuf += [new]
+        y = sum(self.b * self.xbuf[::-1]) - sum(self.a[1:] * self.ybuf[::-1])
+        self.xbuf= self.xbuf[1:]
+        self.ybuf += [y]
+        self.ybuf = self.ybuf[1:]
+        return y
 
     def _read(self,dt=0):
         # data is a Listproperty, so on_data() will be called whenever data has been changed. on_data() will be called right after the following line.
         if self.ser.inWaiting() > 0:
             self.tmp = self.__readFromSerial()
             #  logging.info(len(self.data))
+
+            # Time Domain filter Notch
+            l = len(self.tmp)
+            add = list()
+            for i in self.tmp:
+                add += [self.filt_notch(i)]
+
+            self.filteredDataNotch += add
+
+            self.filteredDataNotch = self.filteredDataNotch[l:]
+
+            # Time Domain filter
+            l = len(add)
+            for i in add:
+                self.filteredData += [self.filt(i)]
+
+            self.filteredData = self.filteredData[l:]
+
+            if self.save:
+                self.toSave.extend(list(self.tmp))
 
     def on_data(self,instance,data):
         self.root.current_screen.ids['RealTimePlotting'].refresh()
@@ -538,6 +602,8 @@ class BCIApp(App):
             Clock.schedule_once(self.root.current_screen.ids['FFT'].clear,1)
             #  self.root.current_screen.ids['RealTimePlotting'].clear()
             #  self.root.current_screen.ids['FFT'].clear()
+            self.data = np.zeros(self.storedLen).tolist()
+            self.filteredData = np.zeros(self.storedLen).tolist()
         except AttributeError:
             # self.ser is None. We have not connect to any available serial device
             pass

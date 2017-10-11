@@ -124,13 +124,13 @@
 			id:filters
 			size_hint:(0.2,1)
 			text:'None'
-			values:('None',)
+			values:('None','Highpass:4Hz','4Hz-60Hz','4Hz-45Hz')
 			on_text: self.parent.parent.set_filter()
 		Spinner:
 			id:notch
 			size_hint:(0.2,1)
 			text:'50Hz'
-			values:('50Hz', '60Hz')
+			values:('None','50Hz', '60Hz')
 			on_text: self.parent.parent.set_notch()
 		Spinner:
 			id:length
