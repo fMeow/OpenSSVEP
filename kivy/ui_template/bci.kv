@@ -73,10 +73,12 @@
 
 
 <SerialPortSelection>:
-	spacing:'10dp'
-	orientation:'horizontal'
+	spacing:'5dp'
+	orientation:'vertical'
 	BoxLayout:
+		orientation:'horizontal'
 		size_hint:(1,1)
+		spacing:'5dp'
 
 		Spinner:
 			id:uart
@@ -100,6 +102,20 @@
 			size_hint:(0.2,1)
 			text:'Connect'
 			on_state: self.parent.parent.changeState(self.state)
+	BoxLayout:
+		spacing:'20dp'
+		size_hint:(1,1)
+		Label:
+			size_hint: (0.2,1)
+			text:'Filename:'
+		TextInput:
+			size_hint: (0.6,1)
+			id:filename
+			text:""
+		Button:
+			on_release :self.parent.parent.clear_filename()
+			size_hint: (0.2,1)
+			text:"Clear"
 
 
 <RealTimePlotting>:
@@ -167,6 +183,6 @@
 				#text:'FFT'
 				#background_normal: 'images/button_normal.png'
 			SerialPortSelection:
-				size_hint:(1,0.2)
+				size_hint:(1,0.3)
 				#sync_height: True
 

@@ -55,6 +55,10 @@ class SerialPortSelection(BoxLayout):
         App.get_running_app().root.current_screen.add_widget(self.popup)
         App.get_running_app().root.current_screen.remove_widget(self.popup)
 
+    def clear_filename(self):
+        self.ids['filename'].text = ''
+
+
     def changeState(self,state):
         if state == 'down':
             con = App.get_running_app().connect(self.ids['uart'].text)
@@ -81,7 +85,9 @@ class SerialPortSelection(BoxLayout):
                 Clock.unschedule(self.tick)
                 self.parent.remove_widget(self.countDown)
                 App.get_running_app().save = False
-                filename = time.strftime("%Y-%m-%d_%H-%M-%S", time.localtime())
+                filename = self.ids['filename'].text
+                if len(filename) == 0:
+                    filename = time.strftime("%Y-%m-%d_%H-%M-%S", time.localtime())
                 np.savetxt('./%s/BCI-%s.txt'%(self.save_directory, filename),App.get_running_app().toSave)
                 App.get_running_app().toSave = list()
 
