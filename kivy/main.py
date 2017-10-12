@@ -448,7 +448,7 @@ class BlinkApp(App):
 class BCIApp(App):
     # Settings
     kv_directory = 'ui_template'
-    fps = 10
+    fps = 5
     fs = 125
     storedLen = 1024
     data = ListProperty()
