@@ -1,4 +1,5 @@
 import socket
+import time
 
 host = ''
 port = 23333
@@ -13,6 +14,9 @@ tcpSerSock.bind((host, port))
 tcpSerSock.listen(5)
 
     #等待客户端连接
+length = 0
+now = 0
+last = time.time()
 try:
     while True:
         print('waiting for connection...')
@@ -24,7 +28,13 @@ try:
                 #给客户端发送信息
                 if not data:
                     break
-                print('[%s] %s' %("You send:", data))
+                #  print('[%s] %s' %("You send:", data))
+                length += len(data)
+                now = time.time()
+                if now - last >= 1:
+                    print('Length: %d at %fs, %f per second' %(length,now-last,length/(now-last)))
+                    last = now
+                    length = 0
         tcpCliSock.close()
 except KeyboardInterrupt:
     print("close")

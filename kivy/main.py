@@ -124,7 +124,7 @@ class FFT(BoxLayout):
     """ Real Time frequency-domain Plotting """
 
     length = 128 # FFT length
-    fftLen = length
+    fftLen = 1024
     plotScale = 1 # (integer) After FFT there are much points as fftLen/2 to plot. Considerable to reduce the points.
     autoScale = True
 
@@ -181,7 +181,7 @@ class FFT(BoxLayout):
         self.ax.set_ylim([-1,1])
         plt.draw_all()
 
-    def set_fft_length(self, FixedFFTLen=False):
+    def set_fft_length(self, FixedFFTLen=True):
         self.length = int(self.ids['fftLen'].text)
         if not FixedFFTLen:
             self.fftLen = self.length
@@ -236,7 +236,7 @@ class FFT(BoxLayout):
         #self.ax.cla()
 
         # Get data
-        y = data[-self.length:]
+        y = data[-self.length:] * signal.hann(self.length, sym=0)
 
         # PSD
         #  x,YPlot = signal.periodogram(y,fs=self.fs,nfft=None,window='hamming')
@@ -349,9 +349,9 @@ class RealTimePlotting(BoxLayout):
         if self.ids['notch'].text == 'None':
             App.get_running_app().refresh_notch_filter(50,False)
         elif self.ids['notch'].text == '50Hz':
-            App.get_running_app().refresh_notch_filter(50)
+            App.get_running_app().refresh_notch_filter(50,True)
         elif self.ids['notch'].text == '60Hz':
-            App.get_running_app().refresh_notch_filter(60)
+            App.get_running_app().refresh_notch_filter(60,True)
 
     def set_length(self):
         if self.ids['length'].text == '0.5s':
@@ -502,8 +502,8 @@ class BCIApp(App):
         return y
 
     def refresh_notch_filter(self,f=50,enable=True):
-        fmin = f-0.5
-        fmax = f+0.5
+        fmin = f-1
+        fmax = f+1
         if enable:
             self.bNotch,self.aNotch = signal.butter(4,[fmin /(self.fs/2),fmax /(self.fs/2)],'bandstop')
         else:
@@ -679,4 +679,8 @@ if __name__ == '__main__':
                 #  format='%(asctime)s %(filename)s[line:%(lineno)d] %(levelname)s %(message)s',
                 #  datefmt='%H:%M:%S')
     #  BlinkApp().run()
-    BCIApp().run()
+    app = BCIApp()
+    try:
+        app.run()
+    except KeyboardInterrupt:
+        app.disconnect()
