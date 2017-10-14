@@ -148,9 +148,9 @@ class FFT(BoxLayout):
         self.ax.set_title('FFT')
 
         # x-axis, ts = 1/fs
-        self.f = np.fft.fftfreq(self.fftLen,self.ts)
+        self.f = np.fft.rfftfreq(self.fftLen,self.ts)
 
-        fPos = self.f[self.f>=0]
+        fPos = self.f#[self.f>=0]
         fPlot = [fPos[i]  for i in range(len(fPos)) if np.mod(i,self.plotScale) == 0 ]
         self.plotLen = len(fPlot)
 
@@ -185,10 +185,11 @@ class FFT(BoxLayout):
         self.length = int(self.ids['fftLen'].text)
         if not FixedFFTLen:
             self.fftLen = self.length
-            self.f = np.fft.fftfreq(self.fftLen,self.ts)
+            self.f = np.fft.rfftfreq(self.fftLen,self.ts)
 
-            fPos = self.f[self.f>=0]
-            fPlot = [fPos[i]  for i in range(len(fPos)) if np.mod(i,self.plotScale) == 0 ]
+            #  fPos = self.f[self.f>=0]
+            #  fPlot = [fPos[i]  for i in range(len(fPos)) if np.mod(i,self.plotScale) == 0 ]
+            fPlot = self.f
             self.plotLen = len(fPlot)
             self.FFTplot.set_data(fPlot,np.zeros_like(fPlot))
 
@@ -246,10 +247,11 @@ class FFT(BoxLayout):
         #  self.FFTplot.set_data(x,YPlot)
 
         # FFT
-        Y = np.fft.fft(y,self.fftLen)
-        YampPos = np.abs(Y[self.f>=0]/self.fftLen)
-        YampPos[1:-1] = YampPos[1:-1] * 2
-        YPlot = [YampPos[i]  for i in range(len(YampPos)) if np.mod(i,self.plotScale)==0 ]
+        Y = np.fft.rfft(y,self.fftLen)
+        YampPos = np.abs(Y/self.fs)
+        #  YampPos[1:-1] = YampPos[1:-1] * 2
+        #  YPlot = [YampPos[i]  for i in range(len(YampPos)) if np.mod(i,self.plotScale)==0 ]
+        YPlot = YampPos
         self.FFTplot.set_ydata(YPlot)
 
 
@@ -334,11 +336,10 @@ class RealTimePlotting(BoxLayout):
 
     def set_filter(self):
         if self.ids['filters'].text == 'None':
-            fs = App.get_running_app().fs
-            App.get_running_app().refresh_filter(0,fs/2)
+            App.get_running_app().refresh_filter(0,0,'None')
         elif self.ids['filters'].text == 'Highpass:4Hz':
             fs = App.get_running_app().fs
-            App.get_running_app().refresh_filter(4,fs/2)
+            App.get_running_app().refresh_filter(4,fs/2,ftype='highpass')
         elif self.ids['filters'].text == '4Hz-60Hz':
             App.get_running_app().refresh_filter(4,60)
         elif self.ids['filters'].text == '4Hz-45Hz':
@@ -469,7 +470,7 @@ class BCIApp(App):
         self.filteredData = np.zeros(self.storedLen).tolist()
         self.filteredDataNotch = np.zeros(self.storedLen).tolist()
         self.refresh_notch_filter(50,True)
-        self.refresh_filter(0,62.5)
+        self.refresh_filter(0,0,'None')
         #  self.b,self.a = signal.butter(4,[4 /(self.fs/2),30 /(self.fs/2)],'band')
         super(BCIApp,self).__init__(**kwargs)
         self.tcpSerSock = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
@@ -502,17 +503,23 @@ class BCIApp(App):
         return y
 
     def refresh_notch_filter(self,f=50,enable=True):
-        fmin = f-1
-        fmax = f+1
         if enable:
-            self.bNotch,self.aNotch = signal.butter(4,[fmin /(self.fs/2),fmax /(self.fs/2)],'bandstop')
+            w0 = f/(self.fs/2)
+            self.bNotch,self.aNotch = signal.iirnotch(w0,10)
         else:
-            self.bNotch,self.aNotch = signal.butter(4,1,'lowpass')
+            self.bNotch = np.array([1])
+            self.aNotch = np.array([1])
         self.xbufNotch= [0 for i in range(len(self.bNotch)-1)]
         self.ybufNotch= [0 for i in range(len(self.aNotch)-1)]
 
-    def refresh_filter(self,fmin,fmax):
-        self.b,self.a = signal.butter(4,[fmin /(self.fs/2),fmax /(self.fs/2)],'band')
+    def refresh_filter(self,fmin,fmax,ftype='band'):
+        if ftype == 'highpass':
+            self.b,self.a = signal.butter(8,[fmin/(self.fs/2)],ftype)
+        elif ftype == 'None':
+            self.b = np.array([1])
+            self.a = np.array([1])
+        else:
+            self.b,self.a = signal.butter(8,[fmin /(self.fs/2),fmax /(self.fs/2)],ftype)
         self.xbuf= [0 for i in range(len(self.b)-1)]
         self.ybuf= [0 for i in range(len(self.a)-1)]
 
@@ -583,6 +590,7 @@ class BCIApp(App):
         Clock.schedule_once(self.root.current_screen.ids['FFT'].clear,1)
         self.data = np.zeros(self.storedLen).tolist()
         self.filteredData = np.zeros(self.storedLen).tolist()
+        self.filteredDataNotch = np.zeros(self.storedLen).tolist()
 
     def __rawData2Voltage(self, rawData,protocol,gainCoefficient=12):
         """ convert rawData to exact voltage

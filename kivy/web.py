@@ -13,7 +13,7 @@ tcpSerSock.bind((host, port))
 #开始监听
 tcpSerSock.listen(5)
 
-    #等待客户端连接
+#等待客户端连接
 length = 0
 now = 0
 last = time.time()
