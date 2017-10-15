@@ -237,7 +237,7 @@ class FFT(BoxLayout):
         #self.ax.cla()
 
         # Get data
-        y = data[-self.length:] * signal.hann(self.length, sym=0)
+        y = data[-self.length:] * signal.blackman(self.length, sym=0)
 
         # PSD
         #  x,YPlot = signal.periodogram(y,fs=self.fs,nfft=None,window='hamming')
@@ -326,11 +326,12 @@ class RealTimePlotting(BoxLayout):
         self.RealTimePlot.set_ydata(y)
         if self.scale == 'Auto':
             ymin,ymax = self.ax.get_ylim()
-            padding = ( np.max(y) - np.min(y) )*0.1
-            if np.min(y) < ymin or np.max(y) > ymax or padding < (ymax - ymin) *0.1  :
-                padding = (np.max(y) - np.min(y)) * 0.1
-                # TODO To improve figure ylimits stability
-                self.ax.set_ylim([np.min(y)-padding, np.max(y)+padding])
+            if ymax>ymin:
+                padding = ( np.max(y) - np.min(y) )*0.1
+                if np.min(y) < ymin or np.max(y) > ymax or padding < (ymax - ymin) *0.1 and (ymax-ymin)>10:
+                    padding = (np.max(y) - np.min(y)) * 0.1
+                    # TODO To improve figure ylimits stability
+                    self.ax.set_ylim([np.min(y)-padding, np.max(y)+padding])
 
         plt.draw_all()
 
@@ -505,7 +506,7 @@ class BCIApp(App):
     def refresh_notch_filter(self,f=50,enable=True):
         if enable:
             w0 = f/(self.fs/2)
-            self.bNotch,self.aNotch = signal.iirnotch(w0,10)
+            self.bNotch,self.aNotch = signal.iirnotch(w0,1)
         else:
             self.bNotch = np.array([1])
             self.aNotch = np.array([1])
@@ -529,6 +530,10 @@ class BCIApp(App):
             logging.info('Waiting for connection')
             tcpCliSock, addr = self.tcpSerSock.accept()
             print('Connected from:',addr)
+            while self.tcp == True:
+                data = tcpCliSock.recv(4096)
+                if len(data) != 4096:
+                    break
 
             while self.tcp == True:
                 data = tcpCliSock.recv(2048)
