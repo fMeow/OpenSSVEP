@@ -237,7 +237,7 @@ class FFT(BoxLayout):
         #self.ax.cla()
 
         # Get data
-        y = data[-self.length:] * signal.blackman(self.length, sym=0)
+        y = data[-self.length:] # * signal.blackman(self.length, sym=0)
 
         # PSD
         #  x,YPlot = signal.periodogram(y,fs=self.fs,nfft=None,window='hamming')
@@ -515,12 +515,12 @@ class BCIApp(App):
 
     def refresh_filter(self,fmin,fmax,ftype='band'):
         if ftype == 'highpass':
-            self.b,self.a = signal.butter(8,[fmin/(self.fs/2)],ftype)
+            self.b,self.a = signal.butter(4,[fmin/(self.fs/2)],ftype)
         elif ftype == 'None':
             self.b = np.array([1])
             self.a = np.array([1])
         else:
-            self.b,self.a = signal.butter(8,[fmin /(self.fs/2),fmax /(self.fs/2)],ftype)
+            self.b,self.a = signal.butter(4,[fmin /(self.fs/2),fmax /(self.fs/2)],ftype)
         self.xbuf= [0 for i in range(len(self.b)-1)]
         self.ybuf= [0 for i in range(len(self.a)-1)]
 
