@@ -127,12 +127,12 @@ class Test(Screen):
                 widgetID = 'button%d' % i
                 hz = seq[index]
                 self.schedule.append(Clock.schedule_interval(partial(self.blinking,i),1/(2*hz)))
-                self.ids[widgetID].text = str(hz)
+                #  self.ids[widgetID].text = str(hz)
         else:
             for i in range(12):
                 widgetID = 'button%d' % i
                 self.ids[widgetID].state = 'normal'
-                self.ids[widgetID].text = '0'
+                #  self.ids[widgetID].text = '0'
         Clock.schedule_once(self.write_state, 1)
         self.blinkState = not self.blinkState
 
