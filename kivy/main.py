@@ -17,6 +17,7 @@ from kivy.uix.screenmanager import ScreenManager, Screen
 import socket
 import struct
 import numpy as np
+import pandas as pd
 from scipy import signal
 
 from functools import partial
@@ -125,7 +126,9 @@ class FFT(BoxLayout):
 
     length = 128 # FFT length
     fftLen = 1024
-    plotScale = 1 # (integer) After FFT there are much points as fftLen/2 to plot. Considerable to reduce the points.
+    windows = 500
+    tolerance = 0.5
+    plotScale = 4 # (integer) After FFT there are much points as fftLen/2 to plot. Considerable to reduce the points.
     autoScale = True
 
     def __init__(self,**kwargs):
@@ -178,10 +181,10 @@ class FFT(BoxLayout):
     def clear(self, dt=0):
         y = self.FFTplot.get_ydata()
         self.FFTplot.set_ydata(np.zeros(len(y)))
-        self.ax.set_ylim([-1,1])
+        self.ax.set_ylim([0,1])
         plt.draw_all()
 
-    def set_fft_length(self, FixedFFTLen=True):
+    def set_fft_length(self, FixedFFTLen=False):
         self.length = int(self.ids['fftLen'].text)
         if not FixedFFTLen:
             self.fftLen = self.length
@@ -189,7 +192,8 @@ class FFT(BoxLayout):
 
             #  fPos = self.f[self.f>=0]
             #  fPlot = [fPos[i]  for i in range(len(fPos)) if np.mod(i,self.plotScale) == 0 ]
-            fPlot = self.f
+            fPos = self.f
+            fPlot = [fPos[i]  for i in range(len(fPos)) if np.mod(i,self.plotScale) == 0 ]
             self.plotLen = len(fPlot)
             self.FFTplot.set_data(fPlot,np.zeros_like(fPlot))
 
@@ -250,8 +254,8 @@ class FFT(BoxLayout):
         Y = np.fft.rfft(y,self.fftLen)
         YampPos = np.abs(Y/self.fs)
         #  YampPos[1:-1] = YampPos[1:-1] * 2
-        #  YPlot = [YampPos[i]  for i in range(len(YampPos)) if np.mod(i,self.plotScale)==0 ]
-        YPlot = YampPos
+        YPlot = [YampPos[i]  for i in range(len(YampPos)) if np.mod(i,self.plotScale)==0 ]
+        #  YPlot = YampPos
         self.FFTplot.set_ydata(YPlot)
 
 
@@ -264,9 +268,32 @@ class FFT(BoxLayout):
         plt.draw_all()
         #self.ax.plot(fPlot,YPlot)
 
+
+    def classifyNaive(self):
+        y = App.get_running_app().filteredData[-self.windows:]
+        Y = np.fft.rfft(y)
+        fs = App.get_running_app().fs
+        freq = np.fft.rfftfreq(len(y),1/fs)
+        powerSpectrum = np.abs(Y/fs)
+        data = pd.Series(powerSpectrum,index=freq)
+
+        # Sum PS on each Frequency
+        naive= dict()
+        for i in range(1, int(data.index.max())):
+            naive[i] = data[i-self.tolerance : i+self.tolerance].mean()
+        naive = pd.Series(naive)
+
+        maximum = naive.argmax()
+        noise = (naive.sum() - naive.max()) / (len(naive) - 1)
+        snr = naive.max()/noise
+        print("Max:%d SNR:%f"%(naive.argmax(), snr))
+        return naive, maximum
+
+
 class RealTimePlotting(BoxLayout):
 
     scale = 'Auto'
+    plotScale = 1
     #  band = np.array([49,51])
     """Real Time time-domain Plotting """
 
@@ -289,6 +316,7 @@ class RealTimePlotting(BoxLayout):
 
         # Plot x data once. Then we only need to update y data
         x = np.arange(0,self.length)/self.fs
+        x= [x[i]  for i in range(len(x)) if np.mod(i,self.plotScale)==0 ]
         self.ax.set_xlim([np.min(x),np.max(x)])
         self.RealTimePlot, = self.ax.plot([],[])
         self.RealTimePlot.set_xdata(x)
@@ -308,7 +336,7 @@ class RealTimePlotting(BoxLayout):
 #        plt.draw()
 
     def clear(self,dt=0):
-        self.RealTimePlot.set_ydata(np.zeros(self.length).tolist())
+        self.RealTimePlot.set_ydata(np.zeros(int(self.length/self.plotScale)).tolist())
         self.ax.set_ylim([-1,1])
         plt.draw_all()
 
@@ -317,7 +345,7 @@ class RealTimePlotting(BoxLayout):
         #  y_raw = App.get_running_app().data[-self.length:]
         y_raw = App.get_running_app().filteredData[-self.length:]
 
-        y = y_raw
+        y= [y_raw[i]  for i in range(len(y_raw)) if np.mod(i,self.plotScale)==0 ]
         # Frequency Domain filter
         #  b,a = signal.butter(4,[5 /(self.fs/2),45 /(self.fs/2)],'band')
         #  y = signal.filtfilt(b,a,y_raw)
@@ -326,7 +354,7 @@ class RealTimePlotting(BoxLayout):
         self.RealTimePlot.set_ydata(y)
         if self.scale == 'Auto':
             ymin,ymax = self.ax.get_ylim()
-            if ymax>ymin:
+            if ymax - ymin !=0:
                 padding = ( np.max(y) - np.min(y) )*0.1
                 if np.min(y) < ymin or np.max(y) > ymax or padding < (ymax - ymin) *0.1 and (ymax-ymin)>10:
                     padding = (np.max(y) - np.min(y)) * 0.1
@@ -366,9 +394,10 @@ class RealTimePlotting(BoxLayout):
             self.length = self.fs * 3
         elif self.ids['length'].text == '4s':
             self.length = self.fs * 4
-
-        x = np.arange(0,self.length)/self.fs
-        y = App.get_running_app().data[-self.length:]
+        x_raw = np.arange(0,self.length)/self.fs
+        x= [x_raw[i]  for i in range(len(x_raw)) if np.mod(i,self.plotScale)==0 ]
+        y_raw = App.get_running_app().data[-self.length:]
+        y= [y_raw[i]  for i in range(len(y_raw)) if np.mod(i,self.plotScale)==0 ]
         self.ax.set_xlim([np.min(x),np.max(x)])
         self.RealTimePlot.set_data(x,y)
         plt.draw_all()
@@ -579,16 +608,21 @@ class BCIApp(App):
 
         # enable real time time-domain or/and frequency-domain plotting
         Clock.schedule_interval(self.refresh,1/self.fps)
+        Clock.schedule_interval(self.classify,0.5)
         #self.root.ids['RealTimePlotting'].start()
         #self.root.ids['FFT'].start()
 
         return True
+
+    def classify(self,dt):
+        self.root.current_screen.ids['FFT'].classifyNaive()
 
     def disconnect(self):
         self.tcp = False
 
         # Stop event
         Clock.unschedule(self.refresh)
+        Clock.unschedule(self.classify)
 
         # Clear Figures
         Clock.schedule_once(self.root.current_screen.ids['RealTimePlotting'].clear,1)

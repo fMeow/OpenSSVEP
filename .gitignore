@@ -8,3 +8,4 @@ bibliography
 *.zip
 octave-workspace
 kivy/data
+stimuli
