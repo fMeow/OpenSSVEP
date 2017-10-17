@@ -275,7 +275,7 @@ class FFT(BoxLayout):
 class RealTimePlotting(BoxLayout):
 
     scale = 'Auto'
-    plotScale = 4
+    plotScale = 2
     #  band = np.array([49,51])
     """Real Time time-domain Plotting """
 
@@ -458,6 +458,8 @@ class BlinkApp(App):
         root.add_widget(Blink(name='bci'))
         return root
 
+
+
 class BCIApp(App):
     # Settings
     kv_directory = 'ui_template'
@@ -478,7 +480,7 @@ class BCIApp(App):
     fBuffer = dict()
     laststate = 0
     ratio = 0.5
-    window = 500
+    window = fs
     tolerance = 0.5
 
     decodeBuffer = [False, False, False]
@@ -501,6 +503,10 @@ class BCIApp(App):
         self.tcpSerSock.bind(("", self.port))
         #开始监听
         self.tcpSerSock.listen(5)
+
+    def on_stop(self):
+        if self.tcp:
+            self.disconnect()
 
     def build(self):
         root = ScreenManager()
@@ -571,14 +577,18 @@ class BCIApp(App):
             # If state changed, stimuli freq should be determined and fList be dumped
             if self.laststate != state and len(self.fBuffer) > 0:
                 f,count = max(self.fBuffer.items(), key=lambda x: x[1])
-                print(self.fBuffer)
+                #  print(self.fBuffer)
                 total = sum(self.fBuffer.values())
-                if f == 'invalid' or count < total * self.ratio:
+                if f == 'invalid':
                     print('%sNot certain%s' % (Fore.RED, Fore.RESET))
                     self.decodeBuffer[self.laststate-1] = False
-                else:
+                elif count >= total * self.ratio:
                     print('%sStaring at %s%dHz%s' % (Fore.GREEN, Fore.YELLOW, f, Fore.RESET))
                     self.decodeBuffer[self.laststate-1] = f
+                else:
+                    print('%sNot certain%s' % (Fore.RED, Fore.RESET))
+                    self.decodeBuffer[self.laststate-1] = False
+
                 self.fBuffer = dict()
                 if self.laststate == 3:
                     print(self.decodeBuffer)
@@ -591,7 +601,11 @@ class BCIApp(App):
         else:
             for i in sequence:
                 if (sequence[i] == self.decodeBuffer).all():
-                    print(i)
+                    print("%sSuccessfully selected %d%s"%( Fore.GREEN, i, Fore.RESET) )
+                    with open('code','w') as f:
+                        f.write(str(i))
+                        f.flush()
+                        f.close()
                     return i
 
 

@@ -26,6 +26,7 @@ from functools import partial
 from colorama import Fore, Back, Style, init
 import logging
 import time
+import os
 from ipdb import set_trace
 
 # Kivy Material Design
@@ -79,14 +80,27 @@ class Test(Screen):
                 widgetID = 'button%d' % i
                 hz = seq[index]
                 self.schedule.append(Clock.schedule_interval(partial(self.blinking,i),1/(2*hz)))
-                #  self.ids[widgetID].text = str(hz)
+                self.ids[widgetID].text = str(hz)
         else:
             for i in range(12):
                 widgetID = 'button%d' % i
                 self.ids[widgetID].state = 'normal'
-                #  self.ids[widgetID].text = '0'
+                self.ids[widgetID].text = '0'
         Clock.schedule_once(self.write_state, 1)
         self.blinkState = not self.blinkState
+
+        if os.path.isfile('code'):
+            with open('code','r+') as f:
+                index = int(f.read())
+                f.close()
+                os.remove('code')
+
+            if index < 10:
+                self.ids['inputText'].text += str(index)
+            elif index == 10:
+                self.ids['inputText'].text = ''
+            elif index == 11:
+                self.ids['inputText'].text = self.ids['inputText'].text[:-1]
 
     def blinking(self,idx,dt):
         #  if idx ==0:
@@ -111,11 +125,11 @@ class Test(Screen):
             self.f.flush()
             if self.frame == 3:
                 self.frame = 0
-            print('Blink')
+            #  print('Blink')
         else:
             self.f.write('0')
             self.f.flush()
-            print('Rest')
+            #  print('Rest')
 
 
 class StimuliApp(App):
@@ -128,7 +142,7 @@ class StimuliApp(App):
 
     def build(self):
         root = ScreenManager()
-        root.add_widget(Test(name='bci', interval = 3))
+        root.add_widget(Test(name='bci', interval = 5))
         return root
 
 if __name__ == '__main__':

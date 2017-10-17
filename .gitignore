@@ -10,3 +10,4 @@ octave-workspace
 kivy/data
 kivy/blinkState
 stimuli
+__pycache__
