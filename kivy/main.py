@@ -130,6 +130,10 @@ class FFT(BoxLayout):
     tolerance = 0.5
     plotScale = 4 # (integer) After FFT there are much points as fftLen/2 to plot. Considerable to reduce the points.
     autoScale = True
+    lastF = {'f':False, 'count':0}
+    fBuffer = dict()
+    laststate = 0
+    ratio = 0.5
 
     def __init__(self,**kwargs):
         super(FFT,self).__init__(**kwargs)
@@ -270,30 +274,87 @@ class FFT(BoxLayout):
 
 
     def classifyNaive(self):
-        y = App.get_running_app().filteredData[-self.windows:]
-        Y = np.fft.rfft(y)
-        fs = App.get_running_app().fs
-        freq = np.fft.rfftfreq(len(y),1/fs)
-        powerSpectrum = np.abs(Y/fs)
-        data = pd.Series(powerSpectrum,index=freq)
+        with open('blinkState','r') as f:
+            state = int(f.read())
+            f.close()
+        if state:
+            self.laststate = state
 
-        # Sum PS on each Frequency
-        naive= dict()
-        for i in range(1, int(data.index.max())):
-            naive[i] = data[i-self.tolerance : i+self.tolerance].mean()
-        naive = pd.Series(naive)
+            y = App.get_running_app().filteredData[-self.windows:]
+            Y = np.fft.rfft(y)
+            fs = App.get_running_app().fs
+            freq = np.fft.rfftfreq(len(y),1/fs)
+            powerSpectrum = np.abs(Y/fs)
+            data = pd.Series(powerSpectrum,index=freq)
 
-        maximum = naive.argmax()
-        noise = (naive.sum() - naive.max()) / (len(naive) - 1)
-        snr = naive.max()/noise
-        print("Max:%d SNR:%f"%(naive.argmax(), snr))
-        return naive, maximum
+            # Sum PS on each Frequency
+            naive= dict()
+            for i in range(1, int(data.index.max())):
+                naive[i] = data[i-self.tolerance : i+self.tolerance].mean()
+            naive = pd.Series(naive)
+
+            maximum = naive.argmax()
+            noise = (naive.sum() - naive.max()) / (len(naive) - 1)
+            snr = naive.max()/noise
+            argmax = naive.argmax()
+            if argmax in [6,11,12,13]:
+                fmax = 12
+            elif argmax in [8,15,16,17]:
+                fmax = 8
+            elif argmax in [9,10,19,20,21,22]:
+                fmax = 10
+            else:
+                fmax = False
+
+            if fmax:
+                try:
+                    self.fBuffer[fmax] += 1
+                except KeyError:
+                    self.fBuffer[fmax] = 1
+                print("Max:%dHz %f SNR:%.3f F: %s%d%sHz"%(argmax, maximum, snr, Fore.GREEN, fmax, Fore.RESET))
+                #  if fmax == self.lastF['f']:
+                    #  self.lastF['count'] += 1
+                #  else:
+                    #  self.lastF['count'] = 0
+                    #  self.lastF['f'] = fmax
+            else:
+                try:
+                    self.fBuffer['invalid'] += 1
+                except KeyError:
+                    self.fBuffer['invalid'] = 1
+
+                print("Max:%dHz %f SNR:%.3f F: %sInvaid%sHz"%(argmax, maximum, snr, Fore.RED, Fore.RESET))
+                #  self.lastF['count'] = 0
+                #  self.lastF['f'] = fmax
+
+            #  if self.lastF['count'] >= 2:
+                #  print('%sStaring at %s%dHz%s' % (Fore.GREEN, Fore.YELLOW, fmax, Fore.RESET))
+
+            return naive, maximum
+
+        else:
+            # If state changed, stimuli freq should be determined and fList be dumped
+            if self.laststate != state and len(self.fBuffer) > 0:
+                f,count = max(self.fBuffer.items(), key=lambda x: x[1])
+                print(self.fBuffer)
+                total = sum(self.fBuffer.values())
+                if f == 'invalid':
+                    print('%sNot certain%s' % (Fore.RED, Fore.RESET))
+                elif count >= total * self.ratio:
+                    print('%sStaring at %s%dHz%s' % (Fore.GREEN, Fore.YELLOW, f, Fore.RESET))
+                else:
+                    print('%sNot certain%s' % (Fore.RED, Fore.RESET))
+
+                self.fBuffer = dict()
+
+            self.laststate = state
+
 
 
 class RealTimePlotting(BoxLayout):
 
     scale = 'Auto'
-    plotScale = 1
+    plotScale = 4
     #  band = np.array([49,51])
     """Real Time time-domain Plotting """
 
@@ -480,8 +541,8 @@ class BCIApp(App):
     # Settings
     kv_directory = 'ui_template'
     fps = 5
-    fs = 250
-    storedLen = int(4 * (fs + fs/125 * 3))
+    fs = 500
+    storedLen = 4096
     data = list()
     # Buffer
     rawRemained = b'' # raw Data from serial, this should contain the data unused last time
@@ -500,7 +561,7 @@ class BCIApp(App):
         self.filteredData = np.zeros(self.storedLen).tolist()
         self.filteredDataNotch = np.zeros(self.storedLen).tolist()
         self.refresh_notch_filter(50,True)
-        self.refresh_filter(0,0,'None')
+        self.refresh_filter(4,45)
         #  self.b,self.a = signal.butter(4,[4 /(self.fs/2),30 /(self.fs/2)],'band')
         super(BCIApp,self).__init__(**kwargs)
         self.tcpSerSock = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
@@ -608,7 +669,7 @@ class BCIApp(App):
 
         # enable real time time-domain or/and frequency-domain plotting
         Clock.schedule_interval(self.refresh,1/self.fps)
-        Clock.schedule_interval(self.classify,0.5)
+        Clock.schedule_interval(self.classify,0.25)
         #self.root.ids['RealTimePlotting'].start()
         #self.root.ids['FFT'].start()
 

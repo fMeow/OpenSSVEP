@@ -8,4 +8,5 @@ bibliography
 *.zip
 octave-workspace
 kivy/data
+kivy/blinkState
 stimuli

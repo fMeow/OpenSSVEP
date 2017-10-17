@@ -31,8 +31,6 @@ def plot_fft(data, start, target=None, fftLen=1024, window=512, fs=250,filt=[4,4
     #  fmax2 = freq[mask][argmax]
     #  #  print('Start at %ds, local maximum at', fmax2,"Diff: %f",fmax2-2*fmax1)
 
-
-
     # Plot
     plt.xlim([0,60])
     p1 = plt.subplot(311)
