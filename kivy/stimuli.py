@@ -31,6 +31,7 @@ from ipdb import set_trace
 # Kivy Material Design
 from kivymd.theming import ThemeManager
 
+from BCIEncode import sequence
 __author__ = 'Guoli Lv'
 __email__ = 'guoli-lv@hotmail.com'
 
@@ -38,56 +39,7 @@ class Test(Screen):
     """Test Layout"""
     # Settings
     theme_cls = ThemeManager()
-    ## f1 f2 f3 依准确度排列
-    f1 = 8
-    f2 = 12
-    f3 = 10
-    sequence = [
-            #  [8],
-            #  [8],
-            #  [8],
-            #  [8],
-            #  [8],
-            #  [8],
-            #  [8],
-            #  [8],
-            #  [8],
-            #  [8],
-            #  [8],
-            #  [8],
-            #  [12,  8,  10,],
-            #  [12,  8,  10,],
-            #  [12,  8,  10,],
-            #  [12,  8,  10,],
-            #  [12,  8,  10,],
-            #  [12,  8,  10,],
-            #  [12,  8,  10,],
-            #  [12,  8,  10,],
-            #  [12,  8,  10,],
-            #  [12,  8,  10,],
-            #  [12,  8,  10,],
-            #  [12,  8,  10,],
-
-
-            ##################################3
-            [f1, f1, f2,],
-
-            [f1, f1, f3],
-            [f1, f2, ],
-            [f1, f3, ],
-
-            [f2, f2, ],
-            [f2, f3, ],
-            [f3, f2, ],
-
-            [f3, f3, ],
-            [f2, f1,  f1,],
-            [f2, f1,  f2,],
-
-            [f1,f1,f1],
-            [f1,f2],
-
-            ]
+    frame = 0
 
     def __init__(self, interval, **kwargs):
         """ Initializing serial and plot
@@ -122,7 +74,7 @@ class Test(Screen):
                 self.count = 0
 
             for i in range(12):
-                seq = self.sequence[i]
+                seq = sequence[i]
                 index = self.count % (len(seq))
                 widgetID = 'button%d' % i
                 hz = seq[index]
@@ -154,11 +106,17 @@ class Test(Screen):
     def write_state(self,dt):
         self.f.seek(0)
         if not self.blinkState:
-            self.f.write('1')
+            self.frame += 1
+            self.f.write(str(self.frame))
             self.f.flush()
+            if self.frame == 3:
+                self.frame = 0
+            print('Blink')
         else:
             self.f.write('0')
             self.f.flush()
+            print('Rest')
+
 
 class StimuliApp(App):
     # Settings

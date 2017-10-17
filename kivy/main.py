@@ -30,6 +30,8 @@ from ipdb import set_trace
 # Kivy Material Design
 from kivymd.theming import ThemeManager
 
+from BCIEncode import sequence
+
 __author__ = 'Guoli Lv'
 __email__ = 'guoli-lv@hotmail.com'
 
@@ -126,14 +128,8 @@ class FFT(BoxLayout):
 
     length = 128 # FFT length
     fftLen = 1024
-    windows = 500
-    tolerance = 0.5
     plotScale = 4 # (integer) After FFT there are much points as fftLen/2 to plot. Considerable to reduce the points.
     autoScale = True
-    lastF = {'f':False, 'count':0}
-    fBuffer = dict()
-    laststate = 0
-    ratio = 0.5
 
     def __init__(self,**kwargs):
         super(FFT,self).__init__(**kwargs)
@@ -273,81 +269,6 @@ class FFT(BoxLayout):
         #self.ax.plot(fPlot,YPlot)
 
 
-    def classifyNaive(self):
-        with open('blinkState','r') as f:
-            state = int(f.read())
-            f.close()
-        if state:
-            self.laststate = state
-
-            y = App.get_running_app().filteredData[-self.windows:]
-            Y = np.fft.rfft(y)
-            fs = App.get_running_app().fs
-            freq = np.fft.rfftfreq(len(y),1/fs)
-            powerSpectrum = np.abs(Y/fs)
-            data = pd.Series(powerSpectrum,index=freq)
-
-            # Sum PS on each Frequency
-            naive= dict()
-            for i in range(1, int(data.index.max())):
-                naive[i] = data[i-self.tolerance : i+self.tolerance].mean()
-            naive = pd.Series(naive)
-
-            maximum = naive.argmax()
-            noise = (naive.sum() - naive.max()) / (len(naive) - 1)
-            snr = naive.max()/noise
-            argmax = naive.argmax()
-            if argmax in [6,11,12,13]:
-                fmax = 12
-            elif argmax in [8,15,16,17]:
-                fmax = 8
-            elif argmax in [9,10,19,20,21,22]:
-                fmax = 10
-            else:
-                fmax = False
-
-            if fmax:
-                try:
-                    self.fBuffer[fmax] += 1
-                except KeyError:
-                    self.fBuffer[fmax] = 1
-                print("Max:%dHz %f SNR:%.3f F: %s%d%sHz"%(argmax, maximum, snr, Fore.GREEN, fmax, Fore.RESET))
-                #  if fmax == self.lastF['f']:
-                    #  self.lastF['count'] += 1
-                #  else:
-                    #  self.lastF['count'] = 0
-                    #  self.lastF['f'] = fmax
-            else:
-                try:
-                    self.fBuffer['invalid'] += 1
-                except KeyError:
-                    self.fBuffer['invalid'] = 1
-
-                print("Max:%dHz %f SNR:%.3f F: %sInvaid%sHz"%(argmax, maximum, snr, Fore.RED, Fore.RESET))
-                #  self.lastF['count'] = 0
-                #  self.lastF['f'] = fmax
-
-            #  if self.lastF['count'] >= 2:
-                #  print('%sStaring at %s%dHz%s' % (Fore.GREEN, Fore.YELLOW, fmax, Fore.RESET))
-
-            return naive, maximum
-
-        else:
-            # If state changed, stimuli freq should be determined and fList be dumped
-            if self.laststate != state and len(self.fBuffer) > 0:
-                f,count = max(self.fBuffer.items(), key=lambda x: x[1])
-                print(self.fBuffer)
-                total = sum(self.fBuffer.values())
-                if f == 'invalid':
-                    print('%sNot certain%s' % (Fore.RED, Fore.RESET))
-                elif count >= total * self.ratio:
-                    print('%sStaring at %s%dHz%s' % (Fore.GREEN, Fore.YELLOW, f, Fore.RESET))
-                else:
-                    print('%sNot certain%s' % (Fore.RED, Fore.RESET))
-
-                self.fBuffer = dict()
-
-            self.laststate = state
 
 
 
@@ -552,6 +473,16 @@ class BCIApp(App):
     filteredData = list()
     port = 23333
 
+    # Classification
+    lastF = {'f':False, 'count':0}
+    fBuffer = dict()
+    laststate = 0
+    ratio = 0.5
+    window = 500
+    tolerance = 0.5
+
+    decodeBuffer = [False, False, False]
+
     def __init__(self,**kwargs):
         """ Initializing serial
         :returns: TODO
@@ -575,6 +506,93 @@ class BCIApp(App):
         root = ScreenManager()
         root.add_widget(Test(name='bci'))
         return root
+
+    def classify(self, dt):
+        """
+        Naive Classification
+        """
+        with open('blinkState','r') as f:
+            state = int(f.read())
+            f.close()
+        if state:
+            self.laststate = state
+
+            y = self.filteredData[-self.window:]
+            Y = np.fft.rfft(y)
+            fs = App.get_running_app().fs
+            freq = np.fft.rfftfreq(len(y),1/fs)
+            powerSpectrum = np.abs(Y/fs)
+            data = pd.Series(powerSpectrum,index=freq)
+
+            # Sum PS on each Frequency
+            naive= dict()
+            for i in range(1, int(data.index.max())):
+                naive[i] = data[i-self.tolerance : i+self.tolerance].mean()
+            naive = pd.Series(naive)
+
+            maximum = naive.argmax()
+            noise = (naive.sum() - naive.max()) / (len(naive) - 1)
+            snr = naive.max()/noise
+            argmax = naive.argmax()
+            if argmax in [6,11,12,13]:
+                fmax = 12
+            elif argmax in [8,15,16,17]:
+                fmax = 8
+            elif argmax in [9,10,19,20,21,22]:
+                fmax = 10
+            else:
+                fmax = False
+
+            if fmax:
+                try:
+                    self.fBuffer[fmax] += 1
+                except KeyError:
+                    self.fBuffer[fmax] = 1
+                print("Max:%dHz %f SNR:%.3f F: %s%d%sHz"%(argmax, maximum, snr, Fore.GREEN, fmax, Fore.RESET))
+                #  if fmax == self.lastF['f']:
+                    #  self.lastF['count'] += 1
+                #  else:
+                    #  self.lastF['count'] = 0
+                    #  self.lastF['f'] = fmax
+            else:
+                try:
+                    self.fBuffer['invalid'] += 1
+                except KeyError:
+                    self.fBuffer['invalid'] = 1
+
+                print("Max:%dHz %f SNR:%.3f F: %sInvaid%sHz"%(argmax, maximum, snr, Fore.RED, Fore.RESET))
+                #  self.lastF['count'] = 0
+                #  self.lastF['f'] = fmax
+
+            #  if self.lastF['count'] >= 2:
+                #  print('%sStaring at %s%dHz%s' % (Fore.GREEN, Fore.YELLOW, fmax, Fore.RESET))
+
+        else:
+            # If state changed, stimuli freq should be determined and fList be dumped
+            if self.laststate != state and len(self.fBuffer) > 0:
+                f,count = max(self.fBuffer.items(), key=lambda x: x[1])
+                print(self.fBuffer)
+                total = sum(self.fBuffer.values())
+                if f == 'invalid' or count < total * self.ratio:
+                    print('%sNot certain%s' % (Fore.RED, Fore.RESET))
+                    self.decodeBuffer[self.laststate-1] = False
+                else:
+                    print('%sStaring at %s%dHz%s' % (Fore.GREEN, Fore.YELLOW, f, Fore.RESET))
+                    self.decodeBuffer[self.laststate-1] = f
+                self.fBuffer = dict()
+                if self.laststate == 3:
+                    print(self.decodeBuffer)
+                    num = self.decode()
+            self.laststate = state
+
+    def decode(self):
+        if False in self.decodeBuffer:
+            return False
+        else:
+            for i in sequence:
+                if (sequence[i] == self.decodeBuffer).all():
+                    print(i)
+                    return i
 
 
     def filt_notch(self,new):
@@ -674,9 +692,6 @@ class BCIApp(App):
         #self.root.ids['FFT'].start()
 
         return True
-
-    def classify(self,dt):
-        self.root.current_screen.ids['FFT'].classifyNaive()
 
     def disconnect(self):
         self.tcp = False
