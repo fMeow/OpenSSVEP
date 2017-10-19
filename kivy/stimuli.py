@@ -53,7 +53,6 @@ class Test(Screen):
         self.Clock = CyClockBaseFree()
 
         self.f = open('blinkState','w+')
-        self.blinkState = True
         self.schedule = list()
         Clock.schedule_interval(self.loop, interval)
         #  Clock.schedule_interval(partial(self.blinking,1),1/(2*15))
@@ -68,26 +67,27 @@ class Test(Screen):
 
         self.schedule = list()
 
-        if self.blinkState:
-            try:
-                self.count += 1
-            except AttributeError:
-                self.count = 0
+        try:
+            self.count += 1
+        except AttributeError:
+            self.count = 0
 
-            for i in range(12):
-                seq = sequence[i]
-                index = self.count % (len(seq))
-                widgetID = 'button%d' % i
-                hz = seq[index]
-                self.schedule.append(Clock.schedule_interval(partial(self.blinking,i),1/(2*hz)))
-                self.ids[widgetID].text = str(hz)
-        else:
+        if self.count == 0:
+
             for i in range(12):
                 widgetID = 'button%d' % i
                 self.ids[widgetID].state = 'normal'
-                self.ids[widgetID].text = '0'
+                #  self.ids[widgetID].text = '0'
+        else:
+            for i in range(12):
+                seq = sequence[i]
+                index = self.count - 1
+                widgetID = 'button%d' % i
+                hz = seq[index]
+                self.schedule.append(Clock.schedule_interval(partial(self.blinking,i),1/(2*hz)))
+                #  self.ids[widgetID].text = str(hz)
+
         Clock.schedule_once(self.write_state, 1)
-        self.blinkState = not self.blinkState
 
         if os.path.isfile('code'):
             with open('code','r+') as f:
@@ -119,17 +119,11 @@ class Test(Screen):
 
     def write_state(self,dt):
         self.f.seek(0)
-        if not self.blinkState:
-            self.frame += 1
-            self.f.write(str(self.frame))
-            self.f.flush()
-            if self.frame == 3:
-                self.frame = 0
-            #  print('Blink')
-        else:
-            self.f.write('0')
-            self.f.flush()
-            #  print('Rest')
+        self.f.write(str(self.count))
+        #  print(self.count)
+        self.f.flush()
+        if self.count == 3:
+            self.count = -1
 
 
 class StimuliApp(App):
@@ -142,7 +136,7 @@ class StimuliApp(App):
 
     def build(self):
         root = ScreenManager()
-        root.add_widget(Test(name='bci', interval = 5))
+        root.add_widget(Test(name='bci', interval = 3))
         return root
 
 if __name__ == '__main__':

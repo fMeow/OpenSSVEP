@@ -103,25 +103,6 @@ class SerialPortSelection(BoxLayout):
 
     def scanPorts(self,dt=0):
         pass
-        # scan ports
-        #  self.ports = serial.tools.list_ports.comports()
-
-        #  # Clear device lists
-        #  self.ids['uart'].values = []
-
-        #  self.ids['uart'].sync_height = True
-
-        #  # Put ports found on selector
-        #  if len(self.ports) == 0:
-            #  self.ids['uart'].text = 'None'
-        #  else:
-            #  for port in self.ports:
-                #  # The first one should be put on Spinner.text else spinner will show None
-                #  if port is self.ports[-1]:
-                    #  self.ids['uart'].text = port.device
-
-                #  self.ids['uart'].values.append(port.device)
-
 
 class FFT(BoxLayout):
     """ Real Time frequency-domain Plotting """
@@ -267,10 +248,6 @@ class FFT(BoxLayout):
                 self.ax.set_ylim([np.min(YPlot)-padding,np.max(YPlot)+padding])
         plt.draw_all()
         #self.ax.plot(fPlot,YPlot)
-
-
-
-
 
 class RealTimePlotting(BoxLayout):
 
@@ -458,8 +435,6 @@ class BlinkApp(App):
         root.add_widget(Blink(name='bci'))
         return root
 
-
-
 class BCIApp(App):
     # Settings
     kv_directory = 'ui_template'
@@ -479,9 +454,10 @@ class BCIApp(App):
     lastF = {'f':False, 'count':0}
     fBuffer = dict()
     laststate = 0
-    ratio = 0.5
+    ratio = 0.4
     window = fs
     tolerance = 0.5
+    interval = 0.2
 
     decodeBuffer = [False, False, False]
 
@@ -514,68 +490,57 @@ class BCIApp(App):
         return root
 
     def classify(self, dt):
-        """
-        Naive Classification
-        """
-        with open('blinkState','r') as f:
-            state = int(f.read())
-            f.close()
-        if state:
-            self.laststate = state
+        def classifyNaive():
+            """
+            Naive Classification
+            """
+            with open('blinkState','r') as f:
+                state = int(f.read())
+                f.close()
+            if state:
 
-            y = self.filteredData[-self.window:]
-            Y = np.fft.rfft(y)
-            fs = App.get_running_app().fs
-            freq = np.fft.rfftfreq(len(y),1/fs)
-            powerSpectrum = np.abs(Y/fs)
-            data = pd.Series(powerSpectrum,index=freq)
+                y = self.filteredData[-self.window:]
+                Y = np.fft.rfft(y)
+                fs = App.get_running_app().fs
+                freq = np.fft.rfftfreq(len(y),1/fs)
+                powerSpectrum = np.abs(Y/fs)
+                data = pd.Series(powerSpectrum,index=freq)
 
-            # Sum PS on each Frequency
-            naive= dict()
-            for i in range(1, int(data.index.max())):
-                naive[i] = data[i-self.tolerance : i+self.tolerance].mean()
-            naive = pd.Series(naive)
+                # Sum PS on each Frequency
+                naive= dict()
+                for i in range(1, int(data.index.max())):
+                    naive[i] = data[i-self.tolerance : i+self.tolerance].mean()
+                naive = pd.Series(naive)
 
-            maximum = naive.argmax()
-            noise = (naive.sum() - naive.max()) / (len(naive) - 1)
-            snr = naive.max()/noise
-            argmax = naive.argmax()
-            if argmax in [6,11,12,13]:
-                fmax = 12
-            elif argmax in [8,15,16,17]:
-                fmax = 8
-            elif argmax in [9,10,19,20,21,22]:
-                fmax = 10
-            else:
-                fmax = False
+                maximum = naive.argmax()
+                noise = (naive.sum() - naive.max()) / (len(naive) - 1)
+                snr = naive.max()/noise
+                argmax = naive.argmax()
+                if argmax in [6,11,12,13]:
+                    fmax = 12
+                elif argmax in [8,15,16,17]:
+                    fmax = 8
+                elif argmax in [9,10,19,20,21,22]:
+                    fmax = 10
+                else:
+                    fmax = False
 
-            if fmax:
-                try:
-                    self.fBuffer[fmax] += 1
-                except KeyError:
-                    self.fBuffer[fmax] = 1
-                print("Max:%dHz %f SNR:%.3f F: %s%d%sHz"%(argmax, maximum, snr, Fore.GREEN, fmax, Fore.RESET))
-                #  if fmax == self.lastF['f']:
-                    #  self.lastF['count'] += 1
-                #  else:
-                    #  self.lastF['count'] = 0
-                    #  self.lastF['f'] = fmax
-            else:
-                try:
-                    self.fBuffer['invalid'] += 1
-                except KeyError:
-                    self.fBuffer['invalid'] = 1
+                if fmax:
+                    try:
+                        self.fBuffer[fmax] += 1
+                    except KeyError:
+                        self.fBuffer[fmax] = 1
+                    print("Max:%dHz %f SNR:%.3f F: %s%d%sHz"%(argmax, maximum, snr, Fore.GREEN, fmax, Fore.RESET))
+                else:
+                    try:
+                        self.fBuffer['invalid'] += 1
+                    except KeyError:
+                        self.fBuffer['invalid'] = 1
 
-                print("Max:%dHz %f SNR:%.3f F: %sInvaid%sHz"%(argmax, maximum, snr, Fore.RED, Fore.RESET))
-                #  self.lastF['count'] = 0
-                #  self.lastF['f'] = fmax
+                    print("Max:%dHz %f SNR:%.3f F: %sInvaid%sHz"%(argmax, maximum, snr, Fore.RED, Fore.RESET))
 
-            #  if self.lastF['count'] >= 2:
-                #  print('%sStaring at %s%dHz%s' % (Fore.GREEN, Fore.YELLOW, fmax, Fore.RESET))
-
-        else:
             # If state changed, stimuli freq should be determined and fList be dumped
-            if self.laststate != state and len(self.fBuffer) > 0:
+            if self.laststate != state and len(self.fBuffer) > 0 and self.laststate:
                 f,count = max(self.fBuffer.items(), key=lambda x: x[1])
                 #  print(self.fBuffer)
                 total = sum(self.fBuffer.values())
@@ -595,6 +560,9 @@ class BCIApp(App):
                     num = self.decode()
             self.laststate = state
 
+        t = threading.Thread(target=classifyNaive)
+        t.start()
+
     def decode(self):
         if False in self.decodeBuffer:
             return False
@@ -607,7 +575,6 @@ class BCIApp(App):
                         f.flush()
                         f.close()
                     return i
-
 
     def filt_notch(self,new):
         self.xbufNotch += [new]
@@ -645,7 +612,6 @@ class BCIApp(App):
             self.b,self.a = signal.butter(4,[fmin /(self.fs/2),fmax /(self.fs/2)],ftype)
         self.xbuf= [0 for i in range(len(self.b)-1)]
         self.ybuf= [0 for i in range(len(self.a)-1)]
-
 
     def _read_tcp_thread(self):
         while self.tcp == True:
@@ -701,7 +667,7 @@ class BCIApp(App):
 
         # enable real time time-domain or/and frequency-domain plotting
         Clock.schedule_interval(self.refresh,1/self.fps)
-        Clock.schedule_interval(self.classify,0.25)
+        Clock.schedule_interval(self.classify, self.interval)
         #self.root.ids['RealTimePlotting'].start()
         #self.root.ids['FFT'].start()
 
