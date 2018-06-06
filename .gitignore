@@ -2,7 +2,12 @@ tags
 *.bin
 *.hex
 .DS_Store
+
+# Octave
 octave-workspace
+
+# IDE
+.idea/*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
