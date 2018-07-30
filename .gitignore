@@ -2,9 +2,10 @@
 tags
 *.bin
 *.hex
-SSVEP脑机接口/*
 .DS_Store
 bibliography
 *.zip
 octave-workspace
-kivy/data
+
+# cache
+__pycache__
