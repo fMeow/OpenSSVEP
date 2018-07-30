@@ -1,11 +1,15 @@
-*.txt
-tags
 *.bin
+*.txt
 *.hex
-.DS_Store
-bibliography
 *.zip
-octave-workspace
+tags
+
+# virtual environment
+venv
 
 # cache
 __pycache__
+__pytest__
+
+# macOS
+.DS_Store
