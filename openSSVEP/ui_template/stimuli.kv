@@ -1,0 +1,96 @@
+#:import Label kivymd.label.Label
+
+<FlashButton@Button>:
+	background_color: (0,0,0,1) if self.state == 'normal' else (1,1,1,1)
+	background_normal: 'disable.png'
+	background_down: 'disable.png'
+	size_hint_x : None
+	size_hint_y : None
+	width:150
+	height:150
+	font_size:50
+
+<Test>:
+    orientation: 'vertical'
+	BoxLayout:
+		orientation: 'horizontal'
+#		padding:'10dp'
+#		spacing:'10dp'
+		canvas.before:
+#			Rectangle:
+#				pos: self.pos
+#				size: self.size
+#				source:'ui_template/background.jpg'
+
+
+		BoxLayout:
+			orientation: 'vertical'
+#			padding:'10dp'
+#			spacing:'10dp'
+
+			TextInput:
+				id:inputText
+				text:''
+				size_hint_y:None
+				height:50
+				font_size:30
+
+			GridLayout:
+				padding:[100,30,100,100]
+				spacing:[300,100]
+				cols:3
+
+				FlashButton:
+					id:button1
+					text:'1'
+
+				FlashButton:
+					id:button2
+#					state:'down'
+					text:'2'
+
+				FlashButton:
+					id:button3
+					text:'3'
+
+				FlashButton:
+					id:button4
+#					state:'down'
+					text:'4'
+
+				FlashButton:
+					id:button5
+					text:'5'
+
+				FlashButton:
+					id:button6
+#					state:'down'
+					text:'6'
+
+				FlashButton:
+					id:button7
+					text:'7'
+
+				FlashButton:
+					id:button8
+#					state:'down'
+					text:'8'
+
+				FlashButton:
+					id:button9
+					text:'9'
+
+				FlashButton:
+					id:button10
+#					state:'down'
+					text:'Confirm'
+
+				FlashButton:
+					id:button0
+					text:'0'
+
+				FlashButton:
+					id:button11
+#					state:'down'
+					text:'Backspace'
+

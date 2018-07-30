@@ -14,9 +14,10 @@ from kivy.clock import Clock
 from kivy.properties import StringProperty,ListProperty
 from kivy.uix.screenmanager import ScreenManager, Screen
 
-import serial,struct,logging,serial.tools.list_ports
-from serial import SerialException
+import socket
+import struct
 import numpy as np
+import pandas as pd
 from scipy import signal
 
 from functools import partial
@@ -28,6 +29,8 @@ from ipdb import set_trace
 
 # Kivy Material Design
 from kivymd.theming import ThemeManager
+
+from BCIEncode import sequence
 
 __author__ = 'Guoli Lv'
 __email__ = 'guoli-lv@hotmail.com'
@@ -99,33 +102,14 @@ class SerialPortSelection(BoxLayout):
             self.ids['connect'].state = 'normal'
 
     def scanPorts(self,dt=0):
-        # scan ports
-        self.ports = serial.tools.list_ports.comports()
-
-        # Clear device lists
-        self.ids['uart'].values = []
-
-        self.ids['uart'].sync_height = True
-
-        # Put ports found on selector
-        if len(self.ports) == 0:
-            self.ids['uart'].text = 'None'
-        else:
-            for port in self.ports:
-                # The first one should be put on Spinner.text else spinner will show None
-                if port is self.ports[-1]:
-                    self.ids['uart'].text = port.device
-
-                self.ids['uart'].values.append(port.device)
-
+        pass
 
 class FFT(BoxLayout):
     """ Real Time frequency-domain Plotting """
 
     length = 128 # FFT length
-    #  fs = 125 # FFT Sampling rate
-    fftLen = length
-    plotScale = 1 # (integer) After FFT there are much points as fftLen/2 to plot. Considerable to reduce the points.
+    fftLen = 1024
+    plotScale = 4 # (integer) After FFT there are much points as fftLen/2 to plot. Considerable to reduce the points.
     autoScale = True
 
     def __init__(self,**kwargs):
@@ -148,9 +132,9 @@ class FFT(BoxLayout):
         self.ax.set_title('FFT')
 
         # x-axis, ts = 1/fs
-        self.f = np.fft.fftfreq(self.fftLen,self.ts)
+        self.f = np.fft.rfftfreq(self.fftLen,self.ts)
 
-        fPos = self.f[self.f>=0]
+        fPos = self.f#[self.f>=0]
         fPlot = [fPos[i]  for i in range(len(fPos)) if np.mod(i,self.plotScale) == 0 ]
         self.plotLen = len(fPlot)
 
@@ -178,16 +162,18 @@ class FFT(BoxLayout):
     def clear(self, dt=0):
         y = self.FFTplot.get_ydata()
         self.FFTplot.set_ydata(np.zeros(len(y)))
-        self.ax.set_ylim([-1,1])
+        self.ax.set_ylim([0,1])
         plt.draw_all()
 
     def set_fft_length(self, FixedFFTLen=False):
         self.length = int(self.ids['fftLen'].text)
         if not FixedFFTLen:
             self.fftLen = self.length
-            self.f = np.fft.fftfreq(self.fftLen,self.ts)
+            self.f = np.fft.rfftfreq(self.fftLen,self.ts)
 
-            fPos = self.f[self.f>=0]
+            #  fPos = self.f[self.f>=0]
+            #  fPlot = [fPos[i]  for i in range(len(fPos)) if np.mod(i,self.plotScale) == 0 ]
+            fPos = self.f
             fPlot = [fPos[i]  for i in range(len(fPos)) if np.mod(i,self.plotScale) == 0 ]
             self.plotLen = len(fPlot)
             self.FFTplot.set_data(fPlot,np.zeros_like(fPlot))
@@ -236,7 +222,7 @@ class FFT(BoxLayout):
         #self.ax.cla()
 
         # Get data
-        y = data[-self.length:]
+        y = data[-self.length:] # * signal.blackman(self.length, sym=0)
 
         # PSD
         #  x,YPlot = signal.periodogram(y,fs=self.fs,nfft=None,window='hamming')
@@ -246,10 +232,11 @@ class FFT(BoxLayout):
         #  self.FFTplot.set_data(x,YPlot)
 
         # FFT
-        Y = np.fft.fft(y,self.fftLen)
-        YampPos = np.abs(Y[self.f>=0]/self.fftLen)
-        YampPos[1:-1] = YampPos[1:-1] * 2
+        Y = np.fft.rfft(y,self.fftLen)
+        YampPos = np.abs(Y/self.fs)
+        #  YampPos[1:-1] = YampPos[1:-1] * 2
         YPlot = [YampPos[i]  for i in range(len(YampPos)) if np.mod(i,self.plotScale)==0 ]
+        #  YPlot = YampPos
         self.FFTplot.set_ydata(YPlot)
 
 
@@ -265,6 +252,7 @@ class FFT(BoxLayout):
 class RealTimePlotting(BoxLayout):
 
     scale = 'Auto'
+    plotScale = 2
     #  band = np.array([49,51])
     """Real Time time-domain Plotting """
 
@@ -287,6 +275,7 @@ class RealTimePlotting(BoxLayout):
 
         # Plot x data once. Then we only need to update y data
         x = np.arange(0,self.length)/self.fs
+        x= [x[i]  for i in range(len(x)) if np.mod(i,self.plotScale)==0 ]
         self.ax.set_xlim([np.min(x),np.max(x)])
         self.RealTimePlot, = self.ax.plot([],[])
         self.RealTimePlot.set_xdata(x)
@@ -306,7 +295,7 @@ class RealTimePlotting(BoxLayout):
 #        plt.draw()
 
     def clear(self,dt=0):
-        self.RealTimePlot.set_ydata(np.zeros(self.length).tolist())
+        self.RealTimePlot.set_ydata(np.zeros(int(self.length/self.plotScale)).tolist())
         self.ax.set_ylim([-1,1])
         plt.draw_all()
 
@@ -315,7 +304,7 @@ class RealTimePlotting(BoxLayout):
         #  y_raw = App.get_running_app().data[-self.length:]
         y_raw = App.get_running_app().filteredData[-self.length:]
 
-        y = y_raw
+        y= [y_raw[i]  for i in range(len(y_raw)) if np.mod(i,self.plotScale)==0 ]
         # Frequency Domain filter
         #  b,a = signal.butter(4,[5 /(self.fs/2),45 /(self.fs/2)],'band')
         #  y = signal.filtfilt(b,a,y_raw)
@@ -324,21 +313,21 @@ class RealTimePlotting(BoxLayout):
         self.RealTimePlot.set_ydata(y)
         if self.scale == 'Auto':
             ymin,ymax = self.ax.get_ylim()
-            padding = ( np.max(y) - np.min(y) )*0.1
-            if np.min(y) < ymin or np.max(y) > ymax or padding < (ymax - ymin) *0.1  :
-                padding = (np.max(y) - np.min(y)) * 0.1
-                # TODO To improve figure ylimits stability
-                self.ax.set_ylim([np.min(y)-padding, np.max(y)+padding])
+            if ymax - ymin !=0:
+                padding = ( np.max(y) - np.min(y) )*0.1
+                if np.min(y) < ymin or np.max(y) > ymax or padding < (ymax - ymin) *0.1 and (ymax-ymin)>10:
+                    padding = (np.max(y) - np.min(y)) * 0.1
+                    # TODO To improve figure ylimits stability
+                    self.ax.set_ylim([np.min(y)-padding, np.max(y)+padding])
 
         plt.draw_all()
 
     def set_filter(self):
         if self.ids['filters'].text == 'None':
-            fs = App.get_running_app().fs
-            App.get_running_app().refresh_filter(0,fs/2)
+            App.get_running_app().refresh_filter(0,0,'None')
         elif self.ids['filters'].text == 'Highpass:4Hz':
             fs = App.get_running_app().fs
-            App.get_running_app().refresh_filter(4,fs/2)
+            App.get_running_app().refresh_filter(4,fs/2,ftype='highpass')
         elif self.ids['filters'].text == '4Hz-60Hz':
             App.get_running_app().refresh_filter(4,60)
         elif self.ids['filters'].text == '4Hz-45Hz':
@@ -349,9 +338,9 @@ class RealTimePlotting(BoxLayout):
         if self.ids['notch'].text == 'None':
             App.get_running_app().refresh_notch_filter(50,False)
         elif self.ids['notch'].text == '50Hz':
-            App.get_running_app().refresh_notch_filter(50)
+            App.get_running_app().refresh_notch_filter(50,True)
         elif self.ids['notch'].text == '60Hz':
-            App.get_running_app().refresh_notch_filter(60)
+            App.get_running_app().refresh_notch_filter(60,True)
 
     def set_length(self):
         if self.ids['length'].text == '0.5s':
@@ -364,9 +353,10 @@ class RealTimePlotting(BoxLayout):
             self.length = self.fs * 3
         elif self.ids['length'].text == '4s':
             self.length = self.fs * 4
-
-        x = np.arange(0,self.length)/self.fs
-        y = App.get_running_app().data[-self.length:]
+        x_raw = np.arange(0,self.length)/self.fs
+        x= [x_raw[i]  for i in range(len(x_raw)) if np.mod(i,self.plotScale)==0 ]
+        y_raw = App.get_running_app().data[-self.length:]
+        y= [y_raw[i]  for i in range(len(y_raw)) if np.mod(i,self.plotScale)==0 ]
         self.ax.set_xlim([np.min(x),np.max(x)])
         self.RealTimePlot.set_data(x,y)
         plt.draw_all()
@@ -449,18 +439,27 @@ class BCIApp(App):
     # Settings
     kv_directory = 'ui_template'
     fps = 5
-    fs = 125
-    storedLen = 1024
-    data = ListProperty()
+    fs = 500
+    storedLen = 4096
+    data = list()
     # Buffer
     rawRemained = b'' # raw Data from serial, this should contain the data unused last time
-    ser = None
-    tmp = list()
     save = False
     toSave = list()
     filteredDataNotch = list()
     filteredData = list()
+    port = 23333
 
+    # Classification
+    lastF = {'f':False, 'count':0}
+    fBuffer = dict()
+    laststate = 0
+    ratio = 0.4
+    window = fs
+    tolerance = 0.5
+    interval = 0.2
+
+    decodeBuffer = [False, False, False]
 
     def __init__(self,**kwargs):
         """ Initializing serial
@@ -471,45 +470,111 @@ class BCIApp(App):
         self.filteredData = np.zeros(self.storedLen).tolist()
         self.filteredDataNotch = np.zeros(self.storedLen).tolist()
         self.refresh_notch_filter(50,True)
-        self.refresh_filter(0,62.5)
+        self.refresh_filter(4,45)
         #  self.b,self.a = signal.butter(4,[4 /(self.fs/2),30 /(self.fs/2)],'band')
         super(BCIApp,self).__init__(**kwargs)
+        self.tcpSerSock = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+        self.tcpSerSock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        #绑定服务端口
+        self.tcpSerSock.bind(("", self.port))
+        #开始监听
+        self.tcpSerSock.listen(5)
 
-    def refresh_notch_filter(self,f=50,enable=True):
-        fmin = f-0.5
-        fmax = f+0.5
-        if enable:
-            self.bNotch,self.aNotch = signal.butter(4,[fmin /(self.fs/2),fmax /(self.fs/2)],'bandstop')
-        else:
-            self.bNotch,self.aNotch = signal.butter(4,1,'lowpass')
-        self.xbufNotch= [0 for i in range(len(self.bNotch)-1)]
-        self.ybufNotch= [0 for i in range(len(self.aNotch)-1)]
-
-    def refresh_filter(self,fmin,fmax):
-        self.b,self.a = signal.butter(4,[fmin /(self.fs/2),fmax /(self.fs/2)],'band')
-        self.xbuf= [0 for i in range(len(self.b)-1)]
-        self.ybuf= [0 for i in range(len(self.a)-1)]
-
+    def on_stop(self):
+        if self.tcp:
+            self.disconnect()
 
     def build(self):
         root = ScreenManager()
         root.add_widget(Test(name='bci'))
         return root
 
-    def _read_thread(self,dt):
-        t = threading.Thread(target=self._read)
+    def classify(self, dt):
+        def classifyNaive():
+            """
+            Naive Classification
+            """
+            with open('blinkState','r') as f:
+                state = int(f.read())
+                f.close()
+            if state:
+
+                y = self.filteredData[-self.window:]
+                Y = np.fft.rfft(y)
+                fs = App.get_running_app().fs
+                freq = np.fft.rfftfreq(len(y),1/fs)
+                powerSpectrum = np.abs(Y/fs)
+                data = pd.Series(powerSpectrum,index=freq)
+
+                # Sum PS on each Frequency
+                naive= dict()
+                for i in range(1, int(data.index.max())):
+                    naive[i] = data[i-self.tolerance : i+self.tolerance].mean()
+                naive = pd.Series(naive)
+
+                maximum = naive.argmax()
+                noise = (naive.sum() - naive.max()) / (len(naive) - 1)
+                snr = naive.max()/noise
+                argmax = naive.argmax()
+                if argmax in [6,11,12,13]:
+                    fmax = 12
+                elif argmax in [8,15,16,17]:
+                    fmax = 8
+                elif argmax in [9,10,19,20,21,22]:
+                    fmax = 10
+                else:
+                    fmax = False
+
+                if fmax:
+                    try:
+                        self.fBuffer[fmax] += 1
+                    except KeyError:
+                        self.fBuffer[fmax] = 1
+                    print("Max:%dHz %f SNR:%.3f F: %s%d%sHz"%(argmax, maximum, snr, Fore.GREEN, fmax, Fore.RESET))
+                else:
+                    try:
+                        self.fBuffer['invalid'] += 1
+                    except KeyError:
+                        self.fBuffer['invalid'] = 1
+
+                    print("Max:%dHz %f SNR:%.3f F: %sInvaid%sHz"%(argmax, maximum, snr, Fore.RED, Fore.RESET))
+
+            # If state changed, stimuli freq should be determined and fList be dumped
+            if self.laststate != state and len(self.fBuffer) > 0 and self.laststate:
+                f,count = max(self.fBuffer.items(), key=lambda x: x[1])
+                #  print(self.fBuffer)
+                total = sum(self.fBuffer.values())
+                if f == 'invalid':
+                    print('%sNot certain%s' % (Fore.RED, Fore.RESET))
+                    self.decodeBuffer[self.laststate-1] = False
+                elif count >= total * self.ratio:
+                    print('%sStaring at %s%dHz%s' % (Fore.GREEN, Fore.YELLOW, f, Fore.RESET))
+                    self.decodeBuffer[self.laststate-1] = f
+                else:
+                    print('%sNot certain%s' % (Fore.RED, Fore.RESET))
+                    self.decodeBuffer[self.laststate-1] = False
+
+                self.fBuffer = dict()
+                if self.laststate == 3:
+                    print(self.decodeBuffer)
+                    num = self.decode()
+            self.laststate = state
+
+        t = threading.Thread(target=classifyNaive)
         t.start()
 
-        l = len(self.tmp)
-        if l > 0:
-            # FIFO
-            tmp = self.data[l:]
-            tmp.extend(list(self.tmp))
-            self.data = tmp
-
-
-            #  logging.info("len:%d"%len(self.tmp))
-        #  logging.info("len:%d"%len(self.data))
+    def decode(self):
+        if False in self.decodeBuffer:
+            return False
+        else:
+            for i in sequence:
+                if (sequence[i] == self.decodeBuffer).all():
+                    print("%sSuccessfully selected %d%s"%( Fore.GREEN, i, Fore.RESET) )
+                    with open('code','w') as f:
+                        f.write(str(i))
+                        f.flush()
+                        f.close()
+                    return i
 
     def filt_notch(self,new):
         self.xbufNotch += [new]
@@ -527,92 +592,100 @@ class BCIApp(App):
         self.ybuf = self.ybuf[1:]
         return y
 
-    def _read(self,dt=0):
-        # data is a Listproperty, so on_data() will be called whenever data has been changed. on_data() will be called right after the following line.
-        if self.ser.inWaiting() > 0:
-            self.tmp = self.__readFromSerial()
-            #  logging.info(len(self.data))
+    def refresh_notch_filter(self,f=50,enable=True):
+        if enable:
+            w0 = f/(self.fs/2)
+            self.bNotch,self.aNotch = signal.iirnotch(w0,1)
+        else:
+            self.bNotch = np.array([1])
+            self.aNotch = np.array([1])
+        self.xbufNotch= [0 for i in range(len(self.bNotch)-1)]
+        self.ybufNotch= [0 for i in range(len(self.aNotch)-1)]
 
-            # Time Domain filter Notch
-            l = len(self.tmp)
-            add = list()
-            for i in self.tmp:
-                add += [self.filt_notch(i)]
+    def refresh_filter(self,fmin,fmax,ftype='band'):
+        if ftype == 'highpass':
+            self.b,self.a = signal.butter(4,[fmin/(self.fs/2)],ftype)
+        elif ftype == 'None':
+            self.b = np.array([1])
+            self.a = np.array([1])
+        else:
+            self.b,self.a = signal.butter(4,[fmin /(self.fs/2),fmax /(self.fs/2)],ftype)
+        self.xbuf= [0 for i in range(len(self.b)-1)]
+        self.ybuf= [0 for i in range(len(self.a)-1)]
 
-            self.filteredDataNotch += add
+    def _read_tcp_thread(self):
+        while self.tcp == True:
+            logging.info('Waiting for connection')
+            tcpCliSock, addr = self.tcpSerSock.accept()
+            print('Connected from:',addr)
+            while self.tcp == True:
+                data = tcpCliSock.recv(4096)
+                if len(data) != 4096:
+                    break
 
-            self.filteredDataNotch = self.filteredDataNotch[l:]
+            while self.tcp == True:
+                data = tcpCliSock.recv(2048)
+                tmp = self.__readRaw(data)
 
-            # Time Domain filter
-            l = len(add)
-            for i in add:
-                self.filteredData += [self.filt(i)]
+                l = len(tmp)
+                if l > 0:
+                    self.data += tmp
+                    self.data = self.data[l:]
+                    # Time Domain filter Notch
+                    add = list()
+                    for i in tmp:
+                        add += [self.filt_notch(i)]
 
-            self.filteredData = self.filteredData[l:]
+                    self.filteredDataNotch += add
 
-            if self.save:
-                self.toSave.extend(list(self.tmp))
+                    self.filteredDataNotch = self.filteredDataNotch[l:]
 
-    def on_data(self,instance,data):
+                    # Time Domain filter
+                    l = len(add)
+                    for i in add:
+                        self.filteredData += [self.filt(i)]
+
+                    self.filteredData = self.filteredData[l:]
+
+                    if self.save:
+                        self.toSave.extend(list(tmp))
+            # Close connection
+            tcpCliSock.close()
+
+
+    def refresh(self,dt):
         self.root.current_screen.ids['RealTimePlotting'].refresh()
         self.root.current_screen.ids['FFT'].refresh()
 
-    #  def __send_command(self,command):
-            #  import time
-            #  self.ser.write(command)
-            #  time.sleep(1)
-            #  #  state = self.ser.read_all()
-            #  #  if b'START' not in command and b'OK' not in state:
-                #  #  print(str(command) + " Error")
-                #  #  print(state)
+    def connect(self,device):
+        self.tcp = True
+        t = threading.Thread(target=self._read_tcp_thread)
+        t.start()
 
-    #  def __configure_easybci(self):
-            #  self.__send_command(b"RDM+STOP")
-            #  self.__send_command(b"RDM+FILTER=OFF")
-            #  self.__send_command(b"RDM+LOFF=OFF")
-            #  self.__send_command(b"RDM+MODE=R1CH")
-            #  self.__send_command(b"RDM+START")
+        self.data = np.zeros(self.storedLen).tolist()
+        #  self.__configure_easybci_thread()
 
-    #  def __configure_easybci_thread(self):
-        #  t = threading.Thread(target=self.__configure_easybci)
-        #  t.start()
+        # enable real time time-domain or/and frequency-domain plotting
+        Clock.schedule_interval(self.refresh,1/self.fps)
+        Clock.schedule_interval(self.classify, self.interval)
+        #self.root.ids['RealTimePlotting'].start()
+        #self.root.ids['FFT'].start()
 
-    def connect(self,port='/dev/ttyUSB0',baudrate=115200):
-        try:
-            # serial part
-            # TODO serial should be opened after face recognition finished
-            self.ser = serial.Serial(port = port,baudrate = baudrate, bytesize=8,parity='N',stopbits=1, write_timeout=0)
-            self.data = np.zeros(self.storedLen).tolist()
-            #  self.__configure_easybci_thread()
-
-            # enable real time time-domain or/and frequency-domain plotting
-            Clock.schedule_interval(self._read_thread,1/self.fps)
-            #self.root.ids['RealTimePlotting'].start()
-            #self.root.ids['FFT'].start()
-
-            return True
-        except SerialException:
-            # Failed
-            return False
+        return True
 
     def disconnect(self):
-        try:
-            # Stop event
-            Clock.unschedule(self._read_thread)
+        self.tcp = False
 
-            # Close connection
-            self.ser.close()
+        # Stop event
+        Clock.unschedule(self.refresh)
+        Clock.unschedule(self.classify)
 
-            # Clear Figures
-            Clock.schedule_once(self.root.current_screen.ids['RealTimePlotting'].clear,1)
-            Clock.schedule_once(self.root.current_screen.ids['FFT'].clear,1)
-            #  self.root.current_screen.ids['RealTimePlotting'].clear()
-            #  self.root.current_screen.ids['FFT'].clear()
-            self.data = np.zeros(self.storedLen).tolist()
-            self.filteredData = np.zeros(self.storedLen).tolist()
-        except AttributeError:
-            # self.ser is None. We have not connect to any available serial device
-            pass
+        # Clear Figures
+        Clock.schedule_once(self.root.current_screen.ids['RealTimePlotting'].clear,1)
+        Clock.schedule_once(self.root.current_screen.ids['FFT'].clear,1)
+        self.data = np.zeros(self.storedLen).tolist()
+        self.filteredData = np.zeros(self.storedLen).tolist()
+        self.filteredDataNotch = np.zeros(self.storedLen).tolist()
 
     def __rawData2Voltage(self, rawData,protocol,gainCoefficient=12):
         """ convert rawData to exact voltage
@@ -644,31 +717,7 @@ class BCIApp(App):
         except Exception:
             pass
 
-    def __readFromSerial(self,protocol='BCISingleChannel'):
-        """TODO: Docstring for readFromSerial.
-        :protocol:protocol type. Should be 'EasyBCISingleChannel' or 'BCISingleChannel'.
-        :ser: Serial Object
-        :returns: a list of raw data from BCI
-        """
-
-        # Check Serial device and assign self.ser
-        if self.ser is None:
-            logging.error("Serial device not set.")
-            return None
-
-        ser = self.ser
-
-        # Read cureent all available data
-        try:
-            rawData = ser.read_all()
-        except OSError:
-            # serial device unplugged
-            # Stop event
-            Clock.unschedule(self._read_thread)
-
-            # Clear Figures
-            self.root.current_screen.ids['RealTimePlotting'].clear()
-            self.root.current_screen.ids['FFT'].clear()
+    def __readRaw(self,rawData, protocol='BCISingleChannel'):
 
         # Get data remaining in the last run
         rawRemained = self.rawRemained
@@ -733,8 +782,8 @@ if __name__ == '__main__':
                 #  format='%(asctime)s %(filename)s[line:%(lineno)d] %(levelname)s %(message)s',
                 #  datefmt='%H:%M:%S')
     #  BlinkApp().run()
+    app = BCIApp()
     try:
-        BCIApp().run()
+        app.run()
     except KeyboardInterrupt:
-        if BCIApp.ser is not None:
-            BCIApp.ser.close()
+        app.disconnect()
