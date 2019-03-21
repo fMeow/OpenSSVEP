@@ -362,16 +362,15 @@ class RealTimePlotting(BoxLayout):
         plt.draw_all()
 
 
-class Layout(Screen):
+class Test(Screen):
     """Test Layout"""
     # Settings
     theme_cls = ThemeManager()
 
     def __init__(self, **kwargs):
         """ Initializing serial and plot
-        :returns: TODO
         """
-        super(Layout,self).__init__(**kwargs)
+        super(Test,self).__init__(**kwargs)
         ''' BLINKING
         '''
         #  for i in range(12):
@@ -479,6 +478,7 @@ class BCIApp(App):
         self.tcpSerSock.bind(("", self.port))
         #开始监听
         self.tcpSerSock.listen(5)
+        self.tcp = False
 
     def on_stop(self):
         if self.tcp:
@@ -486,7 +486,7 @@ class BCIApp(App):
 
     def build(self):
         root = ScreenManager()
-        root.add_widget(Layout(name='bci'))
+        root.add_widget(Test(name='bci'))
         return root
 
     def classify(self, dt):

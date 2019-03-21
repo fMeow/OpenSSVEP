@@ -36,7 +36,7 @@ from BCIEncode import sequence
 __author__ = 'Guoli Lv'
 __email__ = 'guoli-lv@hotmail.com'
 
-class Layout(Screen):
+class Test(Screen):
     # Settings
     theme_cls = ThemeManager()
     frame = 0
@@ -45,7 +45,7 @@ class Layout(Screen):
         """ Initializing serial and plot
         :returns: TODO
         """
-        super(Layout,self).__init__(**kwargs)
+        super(Test,self).__init__(**kwargs)
         ''' BLINKING
         '''
         self.lasttime = time.time()
@@ -135,7 +135,7 @@ class StimuliApp(App):
 
     def build(self):
         root = ScreenManager()
-        root.add_widget(Layout(name='bci', interval = 3))
+        root.add_widget(Test(name='bci', interval = 3))
         return root
 
 if __name__ == '__main__':
