@@ -1,7 +1,6 @@
 from pandas import Series
 from scipy import signal
 import numpy as np
-from ipdb import set_trace
 from matplotlib import pyplot as plt
 
 def plot_fft(data, start, target=None, fftLen=1024, window=512, fs=250,filt=[4,45],tolerance=1):

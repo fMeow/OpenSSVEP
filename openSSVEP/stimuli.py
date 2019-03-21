@@ -27,7 +27,6 @@ from colorama import Fore, Back, Style, init
 import logging
 import time
 import os
-# from ipdb import set_trace
 
 # Kivy Material Design
 from kivymd.theming import ThemeManager

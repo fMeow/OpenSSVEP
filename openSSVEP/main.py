@@ -25,7 +25,6 @@ from functools import partial
 from colorama import Fore, Back, Style, init
 import logging
 import time
-# from ipdb import set_trace
 
 # Kivy Material Design
 from kivymd.theming import ThemeManager
