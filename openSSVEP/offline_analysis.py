@@ -51,7 +51,7 @@ def plot_fft(data, start, target=None, fftLen=1024, window=512, fs=250,filt=[4,4
 
     return freq,Yabs, Series( Yabs,index=freq)
 
-def computeSNR(y,data):
+def compute_SNR(y,data):
     maximum = y.max()
     fmax = y.argmax()
     #  argmax = len(data.index[data.index<fmax])
@@ -80,7 +80,7 @@ def classify(freq,Yabs,filt,tolerance):
     maximum = yFilt.max()
     mean = yFilt.mean()
     threshold = 4
-    if computeSNR(y, y) > threshold and maximum < 15:
+    if compute_SNR(y, y) > threshold and maximum < 15:
         # Threshold
         maxF = y.argmax()
         #  print("Max freq at %f" % maxF)
@@ -88,11 +88,11 @@ def classify(freq,Yabs,filt,tolerance):
         # Inspect half frequency of max frequency with a tolerance
         halfMaxF = maxF/2
         halfY = y[halfMaxF-tolerance:halfMaxF+tolerance]
-        halfSNR = computeSNR(halfY,y)
+        halfSNR = compute_SNR(halfY,y)
 
         doubleMaxF = maxF*2
         doubleY = y[doubleMaxF-2*tolerance:doubleMaxF+2*tolerance]
-        doubleSNR = computeSNR(doubleY,y)
+        doubleSNR = compute_SNR(doubleY,y)
 
         if halfSNR <= threshold:
             if doubleSNR > threshold/2:
@@ -132,7 +132,7 @@ def animate(data, target=None, fftLen=1024, window=512, fs=250,filt=[4,45],gap=0
             else:
 
                 #  classify(freq,powerSpectrumAvg/count,filt = filt,tolerance=tolerance)
-                classifyNaive(freq,powerSpectrumAvg/count, tolerance = claTol)
+                classify_naive(freq,powerSpectrumAvg/count, tolerance = claTol)
                 p3 = plt.subplot(313)
                 p3.cla()
                 p3.set_xlim([0,62.5])
@@ -150,15 +150,15 @@ def animate(data, target=None, fftLen=1024, window=512, fs=250,filt=[4,45],gap=0
         print('Stoped')
     return freq, powerSpectrumAvg, Series(powerSpectrumAvg,index=freq)
 
-def sumHz(data, tolerance=0.5):
+def sum_hz(data, tolerance=0.5):
     out = dict()
     for i in range(1, int(data.index.max())):
         out[i] = data[i-tolerance : i+tolerance].mean()
     return Series(out)
 
-def classifyNaive(freq, powerSpectrum, tolerance=0.5, plot=False):
+def classify_naive(freq, powerSpectrum, tolerance=0.5, plot=False):
     d = Series(powerSpectrum,index=freq)
-    naive = sumHz(d, tolerance)
+    naive = sum_hz(d, tolerance)
     maximum = naive.argmax()
     if plot:
         naive.plot(kind='bar')

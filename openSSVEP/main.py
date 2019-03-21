@@ -25,7 +25,7 @@ from functools import partial
 from colorama import Fore, Back, Style, init
 import logging
 import time
-from ipdb import set_trace
+# from ipdb import set_trace
 
 # Kivy Material Design
 from kivymd.theming import ThemeManager
@@ -362,7 +362,7 @@ class RealTimePlotting(BoxLayout):
         plt.draw_all()
 
 
-class Test(Screen):
+class Layout(Screen):
     """Test Layout"""
     # Settings
     theme_cls = ThemeManager()
@@ -371,7 +371,7 @@ class Test(Screen):
         """ Initializing serial and plot
         :returns: TODO
         """
-        super(Test,self).__init__(**kwargs)
+        super(Layout,self).__init__(**kwargs)
         ''' BLINKING
         '''
         #  for i in range(12):
@@ -486,7 +486,7 @@ class BCIApp(App):
 
     def build(self):
         root = ScreenManager()
-        root.add_widget(Test(name='bci'))
+        root.add_widget(Layout(name='bci'))
         return root
 
     def classify(self, dt):

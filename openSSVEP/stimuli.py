@@ -27,7 +27,7 @@ from colorama import Fore, Back, Style, init
 import logging
 import time
 import os
-from ipdb import set_trace
+# from ipdb import set_trace
 
 # Kivy Material Design
 from kivymd.theming import ThemeManager
@@ -50,7 +50,7 @@ class Test(Screen):
         ''' BLINKING
         '''
         self.lasttime = time.time()
-        self.Clock = CyClockBaseFree()
+        # self.Clock = CyClockBaseFree()
 
         self.f = open('blinkState','w+')
         self.schedule = list()
