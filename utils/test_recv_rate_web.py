@@ -1,13 +1,13 @@
-import socket
-import time
-import argparse
-
 """
 The hardware of openSSVEP is connected via wifi.
 A computer act as a server, and the hardware a client.
 
 This script is used to test the transmision rate from the hardware.
 """
+
+import socket
+import time
+import argparse
 
 if __name__ == "__main__":
 
