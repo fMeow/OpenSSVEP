@@ -30,9 +30,33 @@ Hardware:
 
 ![PCB layout](./.imgs/PCB_layout.png)
 
+## Project Layout
+
+.
+├── firmware -- embedded software
+├── NOS_EEG_V2 -- PCB
+├── utils -- command line utilities
+├── openSSVEP -- software for stimuli presentation, real time analysis and offline analysis
+├── sample_data -- sample data to play with
+├── requirement.txt -- python dependencies
+├── README.md
+├── LICENSE
+
 ## Stimuli
 
+First select 3 frequency that activate strong power in corresponding frequency band in frequency domain
+
+Now we have 3 frequency that can act as 3 distinct instructions. But how can we get enough number of instructions to cover a keyboard?
+Well, we can achieve more distince instructions with combination of these 3 frequency.
+
+Given frequency f1, f2 and f3, we can use f1->f2->f3 as an instruction, and f2->f1->f3 as another.
+In this way, we can get as many as 27(3x3x3) instructions.
+
+In short, we achieve more instructions with a reduce in input speed.
+
 ## Detection algorithm
+
+Based on short time fourier transform(STFT). Can be improved with wavelet transform or Hilbert-Huang transform.
 
 ## Software
 
