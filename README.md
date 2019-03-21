@@ -32,15 +32,17 @@ Hardware:
 
 ## Project Layout
 
+```
 .
-├── firmware -- embedded software
-├── NOS_EEG_V2 -- PCB
-├── utils -- command line utilities
-├── openSSVEP -- software for stimuli presentation, real time analysis and offline analysis
-├── sample_data -- sample data to play with
-├── requirement.txt -- python dependencies
+├── firmware            -- embedded software
+├── NOS_EEG_V2          -- PCB
+├── utils               -- command line utilities
+├── openSSVEP           -- software for stimuli presentation, real time analysis and offline analysis
+├── sample_data         -- sample data to play with
+├── requirement.txt     -- python dependencies
 ├── README.md
-├── LICENSE
+└── LICENSE
+```
 
 ## Stimuli
 
