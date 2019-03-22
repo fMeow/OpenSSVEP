@@ -91,9 +91,15 @@ $ garden install matplotlib --upgrade
 ## Reference
 
 [1]吴俊平. 脑—机接口中的 SSVEP 信号处理方法研究[D]. 华南理工大学, 2015.
+
 [2]胡俊. 基于时频编码的 SSVEP 在线系统开发[D]. 电子科技大学, 2013.
+
 [3]Wu Z, Su S. A Dynamic Selection Method for Reference Electrode in SSVEP-Based BCI[J]. Plos One, 2014, 9(8):e104248.
+
 [4]黄漫玲, 吴平东, 毕路拯,等. 闪光视觉诱发电位在脑机接口中的应用研究[J]. 计算机应用与软件, 2009, 26(11):13-16.
+
 [5]Frey J. Comparison of an open-hardware electroencephalography amplifier with medical grade device in brain-computer interface applications[C]// International Conference on Physiological Computing Systems. 2016:105-114.
+
 [6]Cheng M, Gao X, Gao S, et al. Design and implementation of a brain-computer interface with high transfer rates[J]. IEEE transactions on bio-medical engineering, 2002, 49(10):1181.
+
 [7]Ko L W, Ranga S S K, Komarov O, et al. Development of Single-Channel Hybrid BCI System Using Motor Imagery and SSVEP[J]. Journal of Healthcare Engineering, 2017, 2017:1-7.
