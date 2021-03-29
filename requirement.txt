@@ -19,7 +19,7 @@ numpy==1.16.2
 pandas==0.24.2
 Pillow==7.1.0
 pycodestyle==2.5.0
-Pygments==2.3.1
+Pygments==2.7.4
 pylint==2.3.1
 pyparsing==2.4.0
 pyserial==3.4
